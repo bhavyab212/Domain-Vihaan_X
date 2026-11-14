@@ -6,7 +6,7 @@ import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
 import { SeverityBadge } from '@/components/common/SeverityBadge';
 import { Badge } from '@/components/ui/Badge';
 import { ASSET_TYPE_LABEL, formatUtc, titleCase } from '@/lib/utils/format';
-import type { DigitalAsset, FindingEvidence, SecurityFinding } from '@/types';
+import { isSimulatedProvenance, type DigitalAsset, type FindingEvidence, type SecurityFinding } from '@/types';
 import { categoryOf } from './categories';
 
 interface FindingDrawerProps {
@@ -29,7 +29,7 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 }
 
 function ProvenanceNote({ finding }: { finding: SecurityFinding }) {
-  if (finding.provenance === 'SIMULATED') {
+  if (isSimulatedProvenance(finding.provenance)) {
     return (
       <p className="rounded-md border border-sim/30 bg-sim/[0.08] px-3 py-2 text-xs leading-relaxed text-sim">
         <span className="font-semibold">Simulated evidence.</span> This finding comes from the synthetic demo scenario. No scanner

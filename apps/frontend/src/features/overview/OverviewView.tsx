@@ -106,7 +106,7 @@ function ActivePaths({ paths }: { paths: AttackPath[] | null }) {
                 <SeverityBadge severity={p.severity} />
                 <Badge tone="neutral">{p.status === 'ACTIVE' ? 'Open' : 'Mitigated'}</Badge>
                 <Badge tone="signal">Inferred</Badge>
-                {p.isSimulated && <ProvenanceBadge provenance="SIMULATED" />}
+                {p.isSimulated && <ProvenanceBadge provenance="SIMULATED_DEMO" />}
               </div>
               <p className="text-sm font-medium leading-snug text-fg">{p.title}</p>
               <p className="text-xs text-fg-muted">

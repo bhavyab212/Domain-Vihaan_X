@@ -1,0 +1,4 @@
+# The monorepo root .gitignore has a Python rule `lib/` that would also ignore this app's
+# `src/lib/` source directory (it silently dropped it from PR #1). Re-include it explicitly.
+!src/lib/
+!src/lib/**

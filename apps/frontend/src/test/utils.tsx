@@ -28,6 +28,25 @@ export function stubOffline() {
 
 export const HEALTHY = { status: 'healthy', mode: 'DEMO_MODE', scanners: {} };
 
+/** A valid openapi DemoResetResponse (shape of Dev A's TSK-002 endpoint). Override fields per test. */
+export function resetBody(patch: Record<string, unknown> = {}) {
+  return {
+    status: 'RESET_SUCCESSFUL',
+    scenarioId: 'demo-scenario-saas-breach',
+    mode: 'DEMO_MODE',
+    message: 'Demo scenario reset to canonical synthetic baseline.',
+    assetsCount: 3,
+    findingsCount: 2,
+    relationshipsCount: 2,
+    attackPathsCount: 1,
+    runtimeWorkspace: 'data/runtime/demo_workspace/mock_saas',
+    durationMs: 22.6,
+    walVerified: true,
+    resetAt: '2026-11-15T00:00:00Z',
+    ...patch,
+  };
+}
+
 export function renderApp(route = '/', mode: DataSourceMode = 'preview') {
   return render(
     <AppProviders initialMode={mode} pollIntervalMs={3_600_000}>

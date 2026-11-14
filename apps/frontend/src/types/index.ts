@@ -10,8 +10,16 @@
 export type OperatingMode = 'DEMO_MODE' | 'LIVE_ASSESSMENT_MODE';
 export type AssessmentStatusValue = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type SeverityLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFORMATIONAL';
-/** openapi Finding.provenance. NOTE: AGENTS.md / ADR-013 use a different vocabulary (see PR report). */
-export type ProvenanceType = 'OBSERVED' | 'INFERRED' | 'SIMULATED';
+/**
+ * openapi Finding.provenance (Dev A's TSK-002 contract): OBSERVED | INFERRED | SIMULATED | SIMULATED_DEMO.
+ * `SIMULATED_DEMO` is canonical for synthetic demo findings. `SIMULATED` is the legacy value, still accepted
+ * so older payloads and examples keep rendering. Use `isSimulatedProvenance()` instead of comparing directly.
+ */
+export type ProvenanceType = 'OBSERVED' | 'INFERRED' | 'SIMULATED' | 'SIMULATED_DEMO';
+
+export function isSimulatedProvenance(provenance: ProvenanceType): boolean {
+  return provenance === 'SIMULATED_DEMO' || provenance === 'SIMULATED';
+}
 export type AssetType =
   | 'REPOSITORY'
   | 'CLOUD_ACCOUNT'
@@ -144,7 +152,26 @@ export interface RemediationApproveRequest {
   comments?: string;
 }
 
-/** openapi AssessmentStatus. Also the declared response of POST /demo/reset. */
+/**
+ * POST /demo/reset response (openapi DemoResetResponse, Dev A TSK-002).
+ * `RESET_FAILED` is part of the enum but is never treated as success by the UI.
+ */
+export interface DemoResetResponse {
+  status: 'RESET_SUCCESSFUL' | 'RESET_FAILED';
+  scenarioId: string;
+  mode: 'DEMO_MODE';
+  message: string;
+  assetsCount: number;
+  findingsCount: number;
+  relationshipsCount: number;
+  attackPathsCount: number;
+  runtimeWorkspace: string;
+  durationMs: number;
+  walVerified: boolean;
+  resetAt: string;
+}
+
+/** openapi AssessmentStatus (assessment polling). No longer the response of POST /demo/reset. */
 export interface AssessmentRun {
   id: string;
   mode: OperatingMode;

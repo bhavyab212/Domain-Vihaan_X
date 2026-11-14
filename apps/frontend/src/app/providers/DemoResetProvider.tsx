@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ApiError, resetDemo } from '@/lib/api/client';
+import { ApiError, isDemoResetResponse, resetDemo } from '@/lib/api/client';
 import { useBackendStatus } from './BackendStatusProvider';
 import { useDataSource } from './DataSourceProvider';
 
@@ -54,10 +54,19 @@ export function DemoResetProvider({ children }: { children: ReactNode }) {
     running.current = true;
     setState({ phase: 'pending', message: 'Resetting demo scenario...', errorKind: null, at: null });
     try {
-      const run = await resetDemo();
+      const result = await resetDemo();
+      // Defence in depth: resetDemo() already guarantees this, but the green state must never depend on a
+      // single check. Success requires a valid body, RESET_SUCCESSFUL and DEMO_MODE.
+      if (!isDemoResetResponse(result) || result.status !== 'RESET_SUCCESSFUL' || result.mode !== 'DEMO_MODE') {
+        throw new ApiError('parse', 'POST /demo/reset', 'The reset response was not a confirmed success.');
+      }
       setState({
         phase: 'success',
-        message: `Backend confirmed the reset: ${run.currentStepMessage}`,
+        // Built from validated numeric fields only: never echoes the host path (runtimeWorkspace) or raw text.
+        message:
+          `Backend confirmed the reset: ${result.assetsCount} assets, ${result.findingsCount} findings, ` +
+          `${result.relationshipsCount} relationships, ${result.attackPathsCount} attack path` +
+          `${result.attackPathsCount === 1 ? '' : 's'} restored in ${Math.round(result.durationMs)} ms.`,
         errorKind: null,
         at: new Date(),
       });

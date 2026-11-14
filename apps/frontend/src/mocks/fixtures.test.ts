@@ -23,9 +23,9 @@ describe('preview fixtures (SIMULATED_DEMO)', () => {
     expect(scenario.isSimulated).toBe(true);
   });
 
-  it('mark every finding SIMULATED, never OBSERVED', () => {
+  it('mark every finding SIMULATED_DEMO (canonical), never OBSERVED', () => {
     expect(PREVIEW_FINDINGS.length).toBeGreaterThan(0);
-    for (const finding of PREVIEW_FINDINGS) expect(finding.provenance).toBe('SIMULATED');
+    for (const finding of PREVIEW_FINDINGS) expect(finding.provenance).toBe('SIMULATED_DEMO');
   });
 
   it('mark every attack path as simulated', () => {

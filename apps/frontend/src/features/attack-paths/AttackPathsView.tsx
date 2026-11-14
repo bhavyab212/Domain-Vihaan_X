@@ -142,7 +142,7 @@ function PathDetail({ path, assets, findings }: { path: AttackPath; assets: Digi
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               <SeverityBadge severity={path.severity} />
               <Badge tone="signal">Inferred</Badge>
-              {path.isSimulated && <ProvenanceBadge provenance="SIMULATED" />}
+              {path.isSimulated && <ProvenanceBadge provenance="SIMULATED_DEMO" />}
             </div>
           }
         />
