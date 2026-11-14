@@ -44,11 +44,11 @@ Instead, every tool operates behind a dedicated, typed **Adapter**:
 
 | Integration Name | Primary Security Domain | Invocation Mechanism | Scope Tier | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Gitleaks** | AppSec (Secret Detection) | Local CLI Subprocess | **MVP Core (P0)** | PROPOSED |
-| **Checkov** | InfraSec (IaC & Cloud Misconfig) | Local CLI Subprocess | **MVP Core (P0)** | PROPOSED |
+| **Gitleaks** | AppSec (Secret Detection) | Local CLI Subprocess | **MVP Core (P0)** | **[IMPLEMENTED]** |
+| **Checkov** | InfraSec (IaC & Cloud Misconfig) | Local CLI Subprocess | **MVP Core (P0)** | **[IMPLEMENTED]** |
 | **Trivy** | AppSec (SCA & Container Config) | Local CLI Subprocess | **MVP Core (P0)** | PROPOSED |
-| **HexStrike-AI** | Execution Framework (DAST/Port/MCP) | Hardened Localhost REST Adapter | **MVP Core (P0)** | PROPOSED |
-| **Subfinder** | Attack Surface (Subdomain Enum) | Local CLI Subprocess | **MVP Core (P0)** | PROPOSED |
+| **HexStrike-AI** | Execution Framework (DAST/Port/MCP) | Hardened Localhost REST Adapter | **MVP Core (P0)** | **[IMPLEMENTED]** |
+| **Subfinder** | Attack Surface (Subdomain Enum) | Local CLI Subprocess | **MVP Core (P0)** | **[IMPLEMENTED]** |
 | **Nuclei** | Attack Surface (Template Vulnerabilities)| Local CLI Subprocess | Post-MVP (P1) | DEFERRED |
 | **Nmap** | Attack Surface (Port Scanning) | Local CLI Subprocess | Post-MVP (P1) | DEFERRED |
 | **OSV-Scanner** | AppSec (Open Source Vulnerability) | Local CLI Subprocess | Post-MVP (P1) | DEFERRED |

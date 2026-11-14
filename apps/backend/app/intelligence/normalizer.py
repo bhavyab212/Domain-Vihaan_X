@@ -288,6 +288,69 @@ class FindingNormalizer:
         return findings
 
     @classmethod
+    def normalize_hexstrike(
+        cls,
+        raw_data: Any,
+        asset_id: str,
+        provenance: str = "OBSERVED"
+    ) -> List[FindingResponse]:
+        """
+        Normalizes HexStrike-AI DAST and security assessment findings.
+        """
+        items: List[Dict[str, Any]] = []
+        if isinstance(raw_data, list):
+            items = raw_data
+        elif isinstance(raw_data, dict):
+            items = raw_data.get("findings", [raw_data]) if "findings" in raw_data else [raw_data]
+
+        findings: List[FindingResponse] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            finding_id = item.get("finding_id") or item.get("id") or "HEX-DAST-GENERIC"
+            title = item.get("title") or "HexStrike Security Finding"
+            desc = item.get("description") or title
+            raw_sev = str(item.get("severity") or "MEDIUM").upper()
+            if raw_sev not in {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"}:
+                raw_sev = "MEDIUM"
+
+            cvss = item.get("cvss_score") or item.get("cvss")
+            if cvss is None:
+                cvss_map = {"CRITICAL": 9.0, "HIGH": 7.5, "MEDIUM": 5.0, "LOW": 3.0, "INFORMATIONAL": 1.0}
+                cvss = cvss_map.get(raw_sev, 5.0)
+
+            target_loc = item.get("target_location") or item.get("location") or ""
+            remediation = item.get("remediation_guidance") or "Review and remediate endpoint configuration."
+
+            location_str = f"hexstrike:{target_loc}:{finding_id}"
+            f_id = compute_finding_fingerprint("hexstrike", asset_id, finding_id, location_str)
+
+            clean_desc = redact_secret_values(desc)
+
+            findings.append(
+                FindingResponse(
+                    id=f_id,
+                    title=f"HexStrike DAST: {title}",
+                    description=clean_desc,
+                    severity=raw_sev,
+                    scanner="hexstrike",
+                    assetId=asset_id,
+                    cveId=None,
+                    cvssScore=float(cvss),
+                    provenance=provenance,
+                    location=LocationInfo(
+                        file=None,
+                        line=None,
+                        resource=target_loc if target_loc else None
+                    ),
+                    remediationGuidance=remediation,
+                    status="OPEN",
+                    discoveredAt=utc_now_iso()
+                )
+            )
+        return findings
+
+    @classmethod
     def normalize_subfinder(
         cls,
         raw_data: Any,
@@ -408,6 +471,8 @@ class FindingNormalizer:
                 findings = cls.normalize_trivy(parsed_data, asset_id, provenance)
             elif scanner_key == "subfinder":
                 findings = cls.normalize_subfinder(parsed_data, asset_id, provenance)
+            elif scanner_key == "hexstrike":
+                findings = cls.normalize_hexstrike(parsed_data, asset_id, provenance)
             else:
                 logger.warning(f"Unrecognized scanner type '{scanner}'")
                 quarantined.append(

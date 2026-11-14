@@ -29,9 +29,9 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 
 ## 3. Current Development Phase
 
-- **Current Phase:** **Phase 2 — Core Engine & Intelligence Development (TSK-005, TSK-006, TSK-008 In Review; TSK-002 Carryover Fixes Completed & Pushed; TSK-003 Foundation In Review)**
-- **Active Task Branch:** `backend/TSK-005-006-008-intelligence` (stacked on `backend/TSK-002-demo-reset`)
-- **Next Phase:** **TSK-009: Risk Scorer + TSK-011: Gitleaks Adapter + TSK-012: Checkov Adapter**
+- **Current Phase:** **Phase 3 — Security Operations & Hardened Integrations (TSK-009, TSK-011, TSK-012, TSK-013, TSK-014 Completed & In Review; TSK-002, TSK-003, TSK-005, TSK-006, TSK-008 Consolidated & In Review)**
+- **Active Task Branch:** `backend/TSK-009-011-014-security-operations` (stacked on `backend/TSK-002-005-006-008-integration`)
+- **Next Phase:** **TSK-015: Grounded AI Analysis + TSK-018: Remediation Diff Generator + TSK-019: Human Approval + TSK-020: Verification Loop**
 
 ---
 
@@ -63,11 +63,11 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 - **ADR-004:** Restricted Scanner Adapter and Isolated Execution Model (`ACCEPTED`).
 - **ADR-005:** SQLite in WAL Mode as Initial Hackathon Database (`ACCEPTED` under delegated architectural authority).
 - **ADR-007:** Human-Approved Remediation for Hackathon MVP (`ACCEPTED`).
+- **ADR-008:** Deterministic Contextual Risk Scoring with Structured LLM Explanations (`ACCEPTED` under delegated architectural authority).
 - **ADR-009:** Synthetic Test Assets and Controlled Demonstration Scenario (`ACCEPTED`).
 
 ### Proposed Architecture Awaiting Formal Approval
 - **ADR-006:** React Flow (`@xyflow/react`) for Graph Visualization (`PROPOSED`).
-- **ADR-008:** Deterministic Contextual Risk Scoring with Structured LLM Explanations (`PROPOSED`).
 - **ADR-010:** Frontend-First Judging Experience & Five Primary UIs (`PROPOSED`).
 - **ADR-011:** Deterministic Demo Mode Separated from Live Assessment Mode (`PROPOSED`).
 - **ADR-012:** Graceful Backend Degradation & LLM Independence (`PROPOSED`).
@@ -88,15 +88,21 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 ## 7. Current Repository State
 
 - **Local Directory:** `d:\REAL_projects\Domain-Vihaan X`
-- **Current Branch:** `backend/TSK-005-006-008-intelligence`
+- **Current Branch:** `backend/TSK-009-011-014-security-operations`
 - **Application Code Status:** 
   - Backend Application Foundation complete (`apps/backend/app/main.py`).
   - Synthetic Demo Provider & Reset Engine complete (`apps/backend/app/demo/provider.py`).
   - Finding Normalization Engine complete (`apps/backend/app/intelligence/normalizer.py`).
   - Business Security Graph complete (`apps/backend/app/intelligence/asset_graph.py`).
   - Bounded DFS Attack Path Engine complete (`apps/backend/app/intelligence/attack_path.py`).
+  - Contextual Risk Engine complete (`apps/backend/app/intelligence/risk_engine.py` - TSK-009).
+  - Hardened Gitleaks Subprocess Adapter complete (`apps/backend/app/integrations/scanners/gitleaks.py` - TSK-011).
+  - Hardened Checkov IaC Subprocess Adapter complete (`apps/backend/app/integrations/scanners/checkov.py` - TSK-012).
+  - Hardened HexStrike Loopback Bridge complete (`apps/backend/app/integrations/scanners/hexstrike.py` - TSK-013).
+  - Subfinder Subdomain Discovery Adapter complete (`apps/backend/app/integrations/scanners/subfinder.py` - TSK-014).
+  - Multi-Scanner Assessment Runner complete (`apps/backend/app/orchestration/runner.py`).
   - Endpoints: `POST /api/v1/demo/reset`, `GET /api/v1/health`, `GET /api/v1/graph`, `GET /api/v1/attack-paths`.
-  - 47 automated tests passing in 2.01s with 0 warnings.
+  - 89 automated tests passing in 2.37s with 0 warnings.
   - Zero modifications to `apps/frontend/` (Developer B workspace preserved).
 
 ---

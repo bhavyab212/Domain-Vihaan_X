@@ -20,7 +20,7 @@
 | **ADR-005** | SQLite in WAL Mode as Initial Hackathon Database | **PROPOSED** | Backend Lead | 2026-11-14 |
 | **ADR-006** | React Flow (`@xyflow/react`) for Graph Visualization | **PROPOSED** | Frontend Lead | 2026-11-14 |
 | **ADR-007** | Human-Approved Remediation Workflow for Hackathon MVP | **ACCEPTED** | Product & Security Lead | 2026-11-14 |
-| **ADR-008** | Deterministic Contextual Risk Scoring with AI Summaries | **PROPOSED** | Architecture & AI Lead | 2026-11-14 |
+| **ADR-008** | Deterministic Contextual Risk Scoring with AI Summaries | **ACCEPTED** | Architecture & AI Lead | 2026-11-15 |
 | **ADR-009** | Synthetic Test Assets and Controlled Demo Scenario | **ACCEPTED** | Core Engineering Team | 2026-11-14 |
 | **ADR-010** | Frontend-First Judging Experience & Five Primary UIs | **PROPOSED** | Core Engineering Team | 2026-11-15 |
 | **ADR-011** | Deterministic Demo Mode Separated from Live Assessment | **PROPOSED** | Architecture & Product Lead | 2026-11-15 |
@@ -187,21 +187,33 @@ Require an auditable human approval gate (`POST /api/remediations/{id}/approve`)
 
 ## ADR-008: Deterministic Contextual Risk Scoring with AI Explanations
 
-- **Date:** 2026-11-14
-- **Status:** `PROPOSED`
-- **Decision Owner:** Architecture & AI Lead
-- **Related Documents:** [`docs/02-architecture/TECHNICAL_IMPLEMENTATION.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/docs/02-architecture/TECHNICAL_IMPLEMENTATION.md)
+- **Date:** 2026-11-15
+- **Status:** `ACCEPTED` (Accepted under delegated architectural authority)
+- **Decision Owner:** Developer A (Backend, Security Architecture & Intelligence Lead)
+- **Related Documents:** [`docs/02-architecture/TECHNICAL_IMPLEMENTATION.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/docs/02-architecture/TECHNICAL_IMPLEMENTATION.md), [`apps/backend/app/intelligence/risk_engine.py`](file:///d:/REAL_projects/Domain-Vihaan%20X/apps/backend/app/intelligence/risk_engine.py)
 
 ### Context
-LLMs are probabilistic and prone to hallucinating numerical risk scores between repeated queries.
-
-### Options Considered
-1. *LLM-Calculated Risk Scores:* Ask AI to score the risk 1–10. (Inconsistent, non-deterministic).
-2. *Raw CVSS Only:* Standard scores that ignore business context.
-3. *Hybrid Model (Selected Proposal):* Deterministic mathematical formula calculates Contextual Risk Score (0.0–10.0); LLM is restricted to synthesizing structured natural-language explanations.
+LLMs are probabilistic and prone to hallucinating numerical risk scores between repeated queries. Trusting an LLM to generate numerical priority scores undermines reproducibility, regulatory auditability, and automated remediation gating.
 
 ### Decision
-Calculate Contextual Risk Score deterministically via formula. Constrain the LLM strictly to generating explanations and diff proposals based on verified findings.
+Calculate Contextual Risk Score (CRS) deterministically via an empirical mathematical formula. Restrict the LLM strictly to generating natural language summaries and guided explanations based on grounded evidence.
+
+#### 1. Formula & Normalization
+$$\text{CRS} = \min\left(10.0, \, \max\left(0.0, \, S_{\text{base}} \times \frac{W_{\text{crit}} \times W_{\text{env}} \times W_{\text{exp}} \times W_{\text{jewel}}}{1.15} + B_{\text{path}}\right)\right)$$
+
+#### 2. Grounded Input Features & Weighting Rationale
+- **Base Severity ($S_{\text{base}}$):** Uses verified CVSS v3 score when genuinely reported ($0.0 \le \text{CVSS} \le 10.0$).
+- **Missing-Data Behavior:** When CVSS is missing (common in IaC and secret scans), uses strict severity baselines without fabricating synthetic CVSS: `CRITICAL`: 9.0, `HIGH`: 7.5, `MEDIUM`: 5.0, `LOW`: 2.5, `INFORMATIONAL`: 0.5.
+- **Asset Criticality ($W_{\text{crit}}$):** `CRITICAL` ($1.25\times$), `HIGH` ($1.10\times$), `MEDIUM` ($1.00\times$), `LOW` ($0.85\times$).
+- **Environment Multiplier ($W_{\text{env}}$):** `PRODUCTION` ($1.15\times$), `STAGING` ($1.00\times$), `DEVELOPMENT` ($0.85\times$).
+- **Attack Surface Exposure ($W_{\text{exp}}$):** $+15\%$ multiplier ($1.15\times$) if asset is public-facing (domain, repository, web application).
+- **Crown Jewel Multiplier ($W_{\text{jewel}}$):** $+20\%$ multiplier ($1.20\times$) if asset is a designated crown jewel data vault.
+- **Attack Path Bonus ($B_{\text{path}}$):** $+1.50 \times \text{confidence} \times (S_{\text{base}} / 10.0)$ if the asset is an active step on an inferred attack path.
+- **Asymptotic Asset Rollup:** $\text{Composite} = \min(10.0, \, \text{highest} + 0.15 \times \sum \text{remaining})$ prevents artificial runaway while penalizing vulnerability density.
+
+#### 3. Limitations & Test Evidence
+- Calibrated for software SME and SaaS hackathon demonstration; not a substitute for formal ISO 27005 risk assessment.
+- Verified by 7 automated unit tests in `apps/backend/tests/test_risk_engine.py` covering boundary clamping, missing CVSS handling, environment multipliers, crown jewel scaling, and composite rollups.
 
 ---
 

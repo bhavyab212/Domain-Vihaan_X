@@ -15,14 +15,19 @@
 - **Operating Modes:**
   - `DEMO_MODE`: Instantaneous synthetic scenario loading (`app/demo/provider.py` reading `data/demo/`).
   - `LIVE_ASSESSMENT_MODE`: Safe, sandboxed CLI execution of scanners (Gitleaks, Checkov, Trivy, Subfinder) with strict input validation.
+- **Scanner Adapters & Orchestration:**
+  - Hardened adapters (`app/integrations/scanners/`) with `shell=False`, path confinement, timeout enforcement, secret redaction, and offline DEMO_MODE fallback.
+  - Multi-scanner orchestration (`app/orchestration/runner.py`) handling individual scanner timeouts and computing composite asset risk.
 - **Intelligence Engine:**
+  - Finding Normalization (`app/intelligence/normalizer.py`) converting heterogeneous scanner reports to canonical FindingResponse schemas.
   - Graph model (`app/intelligence/asset_graph.py`) using NetworkX.
-  - Risk prioritization and cross-domain attack path deduction (`app/intelligence/attack_path.py`).
+  - Risk prioritization and contextual risk scoring ($0.0-10.0$) (`app/intelligence/risk_engine.py`).
+  - Cross-domain attack path deduction (`app/intelligence/attack_path.py`).
 - **Resilience & Fallbacks:**
   - Rule-based deterministic attack path and remediation synthesis (`app/ai/rule_fallback.py`) if external LLM/API keys are absent or unreachable.
   - Graceful degradation when scanners timeout or fail.
 - **Safety Boundaries:**
-  - Enforcement of target allowlist in `app/core/safety.py`.
+  - Enforcement of target allowlist and path confinement in `app/core/safety.py`.
   - Zero arbitrary shell injection; strict parameterized execution (`shell=False`).
 
 ---

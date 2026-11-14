@@ -357,3 +357,76 @@ Implement deterministic synthetic SaaS scenario restoration, isolated runtime wo
 - Commit and push `backend/TSK-005-006-008-intelligence`.
 - Prepare pull request targeting `backend/TSK-002-demo-reset`.
 - Generate autonomous prompt for Dev A covering TSK-009, TSK-011, and TSK-012.
+
+
+---
+
+## 2026-11-15 — Session 4: Five-Task Batch: Contextual Risk Engine & Hardened Scanner Adapters (TSK-009, TSK-011, TSK-012, TSK-013, TSK-014)
+
+### Objective
+1. Consolidate backend commits (`2203446`, `de118f3`, `e02e23a`) onto clean branch `backend/TSK-002-005-006-008-integration` branched from `origin/integration`, push, and prepare PR.
+2. Formally accept ADR-008 (Deterministic Contextual Risk Scoring) under delegated authority.
+3. Implement TSK-009: Deterministic Contextual Risk Engine ($0.0-10.0$ bounds, CVSS base score, asset criticality/exposure modifiers, attack path depth boost, asymptotic asset rollup).
+4. Implement TSK-011: Gitleaks CLI Subprocess Adapter (`shell=False`, path confinement, secret redaction, offline DEMO_MODE fallback).
+5. Implement TSK-012: Checkov IaC Subprocess Adapter (`shell=False`, target path validation, JSON parsing, offline DEMO_MODE fallback).
+6. Implement TSK-013: Hardened HexStrike-AI Bridge (loopback-only binding, target allowlist validation, frozen scan profiles, secret redaction, offline DEMO_MODE fallback).
+7. Implement TSK-014: Subfinder Subdomain Enumeration Adapter (domain allowlist validation, subdomain scope confinement, parameterized execution, offline DEMO_MODE fallback).
+8. Connect all scanner adapters to `AssessmentRunner` orchestration and verify `GET /api/v1/health` honest telemetry.
+9. Verify entire backend test suite and author end-to-end integration tests.
+
+### Work Performed
+1. **Branch Consolidation:**
+   - Branched `backend/TSK-002-005-006-008-integration` from `origin/integration`.
+   - Cleanly cherry-picked `2203446` (TSK-002 reset), `de118f3` (TSK-002 fixes), and `e02e23a` (TSK-005, 006, 008).
+   - Verified 47 passed tests. Pushed branch to origin; consolidation PR ready.
+2. **Feature Branch Creation:**
+   - Created and checked out `backend/TSK-009-011-014-security-operations`.
+3. **ADR-008 Formal Acceptance:**
+   - Updated `docs/03-project-management/DECISIONS.md`: marked ADR-008 as `ACCEPTED`, recording formula, input features, asymptotic asset rollup, missing data handling, and limitations.
+4. **TSK-009 Contextual Risk Engine:**
+   - Authored unit test suite in `apps/backend/tests/test_risk_engine.py` (TDD RED).
+   - Implemented `ContextualRiskEngine` in `apps/backend/app/intelligence/risk_engine.py` with `AssetContext`, `ContextualRiskResult`, clamped $0.0-10.0$ formula, contributing factors, evidence refs, and composite asset risk calculation (7 tests GREEN).
+5. **TSK-011 Gitleaks CLI Adapter:**
+   - Added `validate_target_path()` in `apps/backend/app/core/safety.py` enforcing project root confinement and blocking system directories (`/etc`, `C:\Windows`).
+   - Authored unit tests in `apps/backend/tests/test_gitleaks_adapter.py` (TDD RED).
+   - Implemented `GitleaksScannerAdapter` in `apps/backend/app/integrations/scanners/gitleaks.py` with `shell=False`, temporary report files, secret redaction, and offline DEMO_MODE fallback (6 tests GREEN).
+6. **TSK-012 Checkov IaC Adapter:**
+   - Authored unit tests in `apps/backend/tests/test_checkov_adapter.py` (TDD RED).
+   - Implemented `CheckovScannerAdapter` in `apps/backend/app/integrations/scanners/checkov.py` with `shell=False`, target path validation, JSON parsing of `failed_checks`, and offline DEMO_MODE fallback (7 tests GREEN).
+7. **TSK-013 Hardened HexStrike-AI Bridge:**
+   - Authored unit tests in `apps/backend/tests/test_hexstrike_bridge.py` (TDD RED).
+   - Implemented `HexStrikeAdapter` in `apps/backend/app/integrations/scanners/hexstrike.py` with loopback binding check, target allowlisting, frozen profiles (`PROFILE_PASSIVE_RECON`, `PROFILE_WEB_AUDIT`, `PROFILE_LOCAL_PORT_CHECK`), secret redaction, and offline DEMO_MODE fallback to certified synthetic fixtures (9 tests GREEN).
+8. **TSK-014 Subfinder Subdomain Discovery Adapter:**
+   - Authored unit tests in `apps/backend/tests/test_subfinder_adapter.py` (TDD RED).
+   - Implemented `SubfinderScannerAdapter` in `apps/backend/app/integrations/scanners/subfinder.py` with domain allowlist checking, subdomain scope confinement, parameterized subprocess execution (`shell=False`), and offline DEMO_MODE fallback (8 tests GREEN).
+9. **Scanner Orchestration & Normalization:**
+   - Added `normalize_hexstrike` to `FindingNormalizer` in `apps/backend/app/intelligence/normalizer.py`.
+   - Enhanced `AssessmentRunner` in `apps/backend/app/orchestration/runner.py` to run multiple adapters, handle individual scanner failures/timeouts, normalize all findings, and compute composite asset risk.
+   - Authored end-to-end integration test suite in `apps/backend/tests/test_security_operations_e2e.py` (4 tests GREEN).
+10. **Full Test Suite & Quality Verification:**
+    - Full test suite: **89 passed in 2.37s** (100% pass rate, 0 errors, 0 warnings).
+    - Preserved `apps/frontend/` with 0 modifications.
+
+### Tests Executed & Actual Results
+- Command: `python -m pytest apps/backend/tests -v`
+- Result: **89 passed in 2.37s** (100% pass rate, 0 warnings).
+  - `test_attack_path.py`: 5 passed
+  - `test_checkov_adapter.py`: 7 passed
+  - `test_database_reset.py`: 5 passed
+  - `test_demo_endpoint.py`: 3 passed
+  - `test_demo_provider.py`: 6 passed
+  - `test_filesystem_reset.py`: 3 passed
+  - `test_gitleaks_adapter.py`: 6 passed
+  - `test_graph.py`: 4 passed
+  - `test_health.py`: 11 passed
+  - `test_hexstrike_bridge.py`: 9 passed
+  - `test_intelligence_pipeline.py`: 1 passed
+  - `test_normalizer.py`: 10 passed
+  - `test_risk_engine.py`: 7 passed
+  - `test_security_operations_e2e.py`: 4 passed
+  - `test_subfinder_adapter.py`: 8 passed
+
+### Next Steps
+- Commit and push `backend/TSK-009-011-014-security-operations`.
+- Open PR targeting `backend/TSK-002-005-006-008-integration`.
+- Generate autonomous prompt for Dev A covering TSK-015, TSK-018, TSK-019, and TSK-020.

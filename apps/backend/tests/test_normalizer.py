@@ -147,3 +147,17 @@ def test_deduplication_of_findings():
 
     # 2 unique findings instead of 4
     assert len(res.findings) == 2
+
+
+def test_normalize_hexstrike_dast():
+    """Verify HexStrike DAST normalization with deterministic fingerprinting."""
+    fixture_path = FIXTURES_DIR / "hexstrike_output.json"
+    if fixture_path.exists():
+        raw_fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        res = FindingNormalizer.normalize("hexstrike", raw_fixture, asset_id="asset-gateway-01")
+        assert len(res.findings) == 2
+        assert res.findings[0].scanner == "hexstrike"
+        assert res.findings[0].assetId == "asset-gateway-01"
+        assert res.findings[0].severity in ["HIGH", "MEDIUM"]
+        assert len(res.quarantined) == 0
+

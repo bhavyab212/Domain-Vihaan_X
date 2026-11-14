@@ -1,0 +1,36 @@
+{
+  "scan_id": "hexstrike-sim-001",
+  "target": "mock-saas.local",
+  "status": "COMPLETED",
+  "profile": "PROFILE_WEB_AUDIT",
+  "findings": [
+    {
+      "finding_id": "HEX-DAST-001",
+      "tool": "hexstrike",
+      "category": "WEB_SECURITY",
+      "severity": "HIGH",
+      "title": "Cross-Origin Resource Sharing (CORS) Wildcard with Credentials",
+      "description": "API gateway reflects origin header and sets Access-Control-Allow-Credentials: true, permitting unauthorized cross-domain data exfiltration.",
+      "target_asset": "asset-api-gateway",
+      "target_location": "https://api.mock-saas.local/v1/auth",
+      "cvss_score": 7.5,
+      "remediation_guidance": "Restrict Access-Control-Allow-Origin to explicit trusted domain allowlist.",
+      "evidence": {
+        "request": "GET /v1/auth HTTP/1.1\nOrigin: https://evil.attacker.com",
+        "response": "HTTP/1.1 200 OK\nAccess-Control-Allow-Origin: https://evil.attacker.com\nAccess-Control-Allow-Credentials: true"
+      }
+    },
+    {
+      "finding_id": "HEX-DAST-002",
+      "tool": "hexstrike",
+      "category": "NETWORK_EXPOSURE",
+      "severity": "MEDIUM",
+      "title": "Unauthenticated Health & Metrics Endpoint Exposed",
+      "description": "Internal Prometheus metrics endpoint is publicly reachable without authentication on port 9090.",
+      "target_asset": "asset-auth-service",
+      "target_location": "http://127.0.0.1:9090/metrics",
+      "cvss_score": 5.3,
+      "remediation_guidance": "Bind internal metrics to private internal interface or require mutual TLS/basic authentication."
+    }
+  ]
+}

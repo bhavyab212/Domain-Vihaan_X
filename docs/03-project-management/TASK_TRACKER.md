@@ -32,13 +32,13 @@
 | **TSK-006** | NetworkX Business Security Graph Model | **P0** | Dev A | **IN_REVIEW** | 60 min | TSK-005 | FR-005, FR-006 |
 | **TSK-007** | React Flow Interactive Canvas Setup | **P0** | Dev B | **BACKLOG** | 60 min | TSK-004 | FR-014, NFR-001 |
 | **TSK-008** | Attack-Path Traversal Algorithm (DFS) | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-006 | FR-007, NFR-007 |
-| **TSK-009** | Deterministic Contextual Risk Scorer ($0.0-10.0$) | **P0** | Dev A | **READY** | 30 min | TSK-006 | FR-008, NFR-007 |
+| **TSK-009** | Deterministic Contextual Risk Scorer ($0.0-10.0$) | **P0** | Dev A | **IN_REVIEW** | 30 min | TSK-006 | FR-008, NFR-007 |
 | **TSK-010** | Custom Node Cards & Pulsating Attack Edge | **P0** | Dev B | **BACKLOG** | 60 min | TSK-007 | FR-014 |
-| **TSK-011** | Gitleaks CLI Subprocess Adapter (`shell=False`) | **P0** | Dev A | **READY** | 30 min | TSK-003 | FR-003, SEC-002 |
-| **TSK-012** | Checkov IaC Subprocess Adapter (`shell=False`) | **P0** | Dev A | **READY** | 30 min | TSK-003 | FR-003, SEC-002 |
-| **TSK-013** | Hardened HexStrike-AI Bridge (Graceful Fallback)| **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-003 |
-| **TSK-014** | Subfinder Subdomain Discovery Adapter | **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-001 |
-| **TSK-015** | Grounded AI Analysis & Embedded Rule Fallback | **P0** | Dev A | **BACKLOG** | 45 min | TSK-008 | FR-009, NFR-003 |
+| **TSK-011** | Gitleaks CLI Subprocess Adapter (`shell=False`) | **P0** | Dev A | **IN_REVIEW** | 30 min | TSK-003 | FR-003, SEC-002 |
+| **TSK-012** | Checkov IaC Subprocess Adapter (`shell=False`) | **P0** | Dev A | **IN_REVIEW** | 30 min | TSK-003 | FR-003, SEC-002 |
+| **TSK-013** | Hardened HexStrike-AI Bridge (Graceful Fallback)| **P0** | Dev A | **IN_REVIEW** | 30 min | TSK-003 | FR-003, SEC-003 |
+| **TSK-014** | Subfinder Subdomain Discovery Adapter | **P0** | Dev A | **IN_REVIEW** | 30 min | TSK-003 | FR-003, SEC-001 |
+| **TSK-015** | Grounded AI Analysis & Embedded Rule Fallback | **P0** | Dev A | **READY** | 45 min | TSK-008 | FR-009, NFR-003 |
 | **TSK-016** | Threat & Findings Center Triage Table UI | **P0** | Dev B | **BACKLOG** | 45 min | TSK-004 | FR-015 |
 | **TSK-017** | Attack Path Investigation Drawer & Kill Chain | **P0** | Dev B | **BACKLOG** | 45 min | TSK-010, TSK-015 | FR-016 |
 | **TSK-018** | Remediation Recommendation & Diff Generator | **P0** | Dev A | **BACKLOG** | 45 min | TSK-008 | FR-010 |
@@ -107,6 +107,70 @@
 - **Acceptance Criteria:**
   - Canvas renders 4-node attack chain from synthetic data with smooth drag/zoom/pan.
   - Selecting an attack path focuses and highlights the corresponding edges.
+
+---
+
+### TSK-009: Deterministic Contextual Risk Scorer ($0.0-10.0$)
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-008 Accepted)
+- **Description:** Implement `app/intelligence/risk_engine.py` evaluating grounded findings against asset topology, exposure, criticality, and attack path presence. Employs mathematically clamped $0.0-10.0$ scoring and asymptotic composite asset risk rollup.
+- **Acceptance Criteria:**
+  - Deterministic formula with 100% reproducible float scores.
+  - Contextual modifiers strictly bounded to $[0.0, 10.0]$.
+  - Zero hallucinated scores; transparent contributing factor breakdowns and evidence references.
+
+---
+
+### TSK-011: Gitleaks CLI Subprocess Adapter (`shell=False`)
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]`)
+- **Description:** Implement `app/integrations/scanners/gitleaks.py` with `shell=False`, parameterized args, project root path confinement, secret redaction, timeout handling, and offline `DEMO_MODE` fallback.
+- **Acceptance Criteria:**
+  - Parameterized command execution (`shell=False`).
+  - Target path confined within approved project workspaces.
+  - Full secret redaction in logs and findings (`***REDACTED***`).
+  - Offline `DEMO_MODE` returns certified synthetic demonstration findings with exit code 0.
+
+---
+
+### TSK-012: Checkov IaC Subprocess Adapter (`shell=False`)
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]`)
+- **Description:** Implement `app/integrations/scanners/checkov.py` with `shell=False`, target directory validation, timeout handling, JSON failed checks parsing, and offline `DEMO_MODE` fallback.
+- **Acceptance Criteria:**
+  - Parameterized execution against Terraform/CloudFormation files.
+  - Target path validated against system location traversal.
+  - Normalizes `failed_checks` into canonical Finding schemas.
+  - Offline `DEMO_MODE` returns synthetic demonstration findings with exit code 0.
+
+---
+
+### TSK-013: Hardened HexStrike-AI Bridge (Graceful Fallback)
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]`)
+- **Description:** Implement `app/integrations/scanners/hexstrike.py` with loopback-only binding (`127.0.0.1`, `localhost`), target allowlist validation, frozen scan profiles, secret redaction, and seamless fallback to synthetic DAST fixtures in `DEMO_MODE`.
+- **Acceptance Criteria:**
+  - Non-loopback endpoints strictly rejected with `SecurityBoundaryError`.
+  - Target domains validated against `ALLOWED_TARGET_DOMAINS`.
+  - Only approved scan profiles allowed (`PROFILE_PASSIVE_RECON`, `PROFILE_WEB_AUDIT`, `PROFILE_LOCAL_PORT_CHECK`).
+  - Offline `DEMO_MODE` falls back gracefully without unhandled exceptions.
+
+---
+
+### TSK-014: Subfinder Subdomain Discovery Adapter
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]`)
+- **Description:** Implement `app/integrations/scanners/subfinder.py` with domain allowlist checking, subdomain scope confinement, parameterized subprocess execution (`shell=False`), and offline `DEMO_MODE` fallback.
+- **Acceptance Criteria:**
+  - Target domain verified against allowlist.
+  - Out-of-scope discovered subdomains filtered out.
+  - Parameterized execution with timeout enforcement.
+  - Offline `DEMO_MODE` fallback returns certified synthetic findings.
 
 ---
 
