@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 SeverityType = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"]
-ProvenanceType = Literal["OBSERVED", "INFERRED", "SIMULATED"]
+ProvenanceType = Literal["OBSERVED", "INFERRED", "SIMULATED", "SIMULATED_DEMO"]
 FindingStatus = Literal["OPEN", "IN_REMEDIATION", "RESOLVED", "ACCEPTED_RISK"]
 
 

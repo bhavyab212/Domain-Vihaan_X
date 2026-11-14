@@ -128,20 +128,20 @@ All CLI scanner invocations must use Python `subprocess.run(shell=False)` with f
 
 ## ADR-005: SQLite in WAL Mode as Initial Hackathon Database
 
-- **Date:** 2026-11-14
-- **Status:** `PROPOSED` (Awaiting Developer B confirmation)
-- **Decision Owner:** Backend Lead
+- **Date:** 2026-11-15 (Accepted under delegated architectural authority)
+- **Status:** `ACCEPTED`
+- **Decision Owner:** Backend Lead (Developer A)
 - **Related Documents:** [`docs/02-architecture/DATA_MODEL.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/docs/02-architecture/DATA_MODEL.md)
 
 ### Context
 We need a robust, relational database for persisting assets, findings, assessments, and audit logs during the hackathon.
 
 ### Options Considered
-1. *PostgreSQL in Docker:* Enterprise standard, but adds container orchestration overhead and demo failure points.
-2. *SQLite in WAL Mode (Selected Proposal):* Zero-configuration, zero network latency, file-backed ACID transactions, trivially reproducible test seeds.
+1. *PostgreSQL in Docker:* Enterprise standard, but adds container orchestration overhead, background daemon dependencies, and live demo failure points (connection timeouts/container restart failures).
+2. *SQLite in WAL Mode (Accepted):* Zero-configuration, zero network latency, file-backed ACID transactions, concurrent reads during writes via Write-Ahead Logging (`PRAGMA journal_mode=WAL;`), foreign-key enforcement (`PRAGMA foreign_keys=ON;`), and sub-second deterministic demo scenario resets.
 
 ### Decision
-Propose SQLite with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`) for the Hackathon MVP, architecting models for clean PostgreSQL migration in v1.0.
+Adopt SQLite with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`) and foreign keys enabled for the Hackathon MVP. Models are built using SQLAlchemy 2.0 declarative mappings to guarantee seamless PostgreSQL migration for production v1.0. Scoped deletion and reseeding ensure live records are protected during synthetic demo resets.
 
 ---
 

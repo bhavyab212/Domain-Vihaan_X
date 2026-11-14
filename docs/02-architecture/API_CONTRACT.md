@@ -103,21 +103,23 @@ GET /api/health
 
 ### 3.2 Demo Scenario Management (One-Click Reset)
 
-#### `POST /api/demo/reset`
-- **Description:** Resets the synthetic demo scenario to a clean initial state. Re-seeds the SQLite database with baseline AcmeCloud assets, clears findings, and restores `test_env/mock_saas/iac/iam_staging.tf` to its initial vulnerable state.
-- **Response `200 OK`:**
+#### `POST /api/v1/demo/reset`
+- **Description:** Resets the synthetic demo scenario to a clean initial state. Re-seeds the SQLite database with baseline synthetic SaaS assets, findings (provenance `SIMULATED_DEMO`), relationships, and attack paths. Restores working runtime fixtures at `data/runtime/demo_workspace/mock_saas/` from the immutable baseline `data/demo/mock_saas/`.
+- **Response `200 OK` (`DemoResetResponse`):**
   ```json
   {
-    "success": true,
-    "data": {
-      "scenario": "ACME_SAAS_SYNTHETIC",
-      "status": "RESET_SUCCESSFUL",
-      "assets_seeded": 3,
-      "relationships_seeded": 2,
-      "duration_ms": 320
-    },
-    "error": null,
-    "meta": { "mode": "DEMO_MODE", "degraded_fallback_engaged": false }
+    "status": "RESET_SUCCESSFUL",
+    "scenarioId": "demo-scenario-saas-breach",
+    "mode": "DEMO_MODE",
+    "message": "Demo scenario reset to canonical synthetic baseline.",
+    "assetsCount": 3,
+    "findingsCount": 2,
+    "relationshipsCount": 2,
+    "attackPathsCount": 1,
+    "runtimeWorkspace": "d:/REAL_projects/Domain-Vihaan X/data/runtime/demo_workspace/mock_saas",
+    "durationMs": 22.6,
+    "walVerified": true,
+    "resetAt": "2026-11-15T02:35:00.000Z"
   }
   ```
 

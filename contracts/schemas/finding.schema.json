@@ -34,7 +34,7 @@
     },
     "provenance": {
       "type": "string",
-      "enum": ["OBSERVED", "INFERRED", "SIMULATED"]
+      "enum": ["OBSERVED", "INFERRED", "SIMULATED", "SIMULATED_DEMO"]
     },
     "location": {
       "type": "object",

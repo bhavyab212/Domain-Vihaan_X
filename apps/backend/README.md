@@ -89,6 +89,7 @@ apps/backend/
    - ReDoc: `http://localhost:8000/redoc`
    - OpenAPI JSON Schema: `http://localhost:8000/openapi.json`
    - Canonical Health Check: `http://localhost:8000/api/v1/health`
+   - Canonical Demo Reset: `http://localhost:8000/api/v1/demo/reset` (POST)
 
 ---
 
