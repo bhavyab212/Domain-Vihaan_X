@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, FlaskConical, X } from 'lucide-react';
+// (FlaskConical is also used by the preview banner below)
 import { useDataSource } from '@/app/providers/DataSourceProvider';
 import { useDemoReset } from '@/app/providers/DemoResetProvider';
 import { PREVIEW_SCENARIO } from '@/mocks/fixtures';
@@ -33,17 +34,26 @@ export function ResetFeedback() {
   const { phase, message, dismiss } = useDemoReset();
   if (phase === 'idle' || phase === 'pending') return null;
   const ok = phase === 'success';
+  const preview = phase === 'preview';
   return (
     <div
-      role={ok ? 'status' : 'alert'}
+      role={ok || preview ? 'status' : 'alert'}
       data-testid="reset-feedback"
       data-phase={phase}
       className={cn(
         'flex items-center gap-2.5 border-b px-4 py-2 text-xs lg:px-6',
-        ok ? 'border-ok/30 bg-ok/10 text-ok' : 'border-sev-critical/30 bg-sev-critical/10 text-sev-critical',
+        ok && 'border-ok/30 bg-ok/10 text-ok',
+        preview && 'border-sim/30 bg-sim/[0.08] text-sim',
+        !ok && !preview && 'border-sev-critical/30 bg-sev-critical/10 text-sev-critical',
       )}
     >
-      {ok ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> : <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />}
+      {ok ? (
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+      ) : preview ? (
+        <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
+      ) : (
+        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+      )}
       <p className="min-w-0 flex-1">{message}</p>
       <button type="button" onClick={dismiss} aria-label="Dismiss message" className="rounded p-1 hover:bg-white/10">
         <X className="h-3.5 w-3.5" aria-hidden />

@@ -1,8 +1,7 @@
-import { FlaskConical, Loader2, RefreshCw, RotateCcw, Server } from 'lucide-react';
+import { FlaskConical, RefreshCw, Server } from 'lucide-react';
 import { useBackendStatus } from '@/app/providers/BackendStatusProvider';
 import { useDataSource } from '@/app/providers/DataSourceProvider';
-import { useDemoReset } from '@/app/providers/DemoResetProvider';
-import { Button } from '@/components/ui/Button';
+import { ResetDemoControl } from '@/components/common/ResetDemoControl';
 import { formatClock } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { DataSourceMode } from '@/lib/config/env';
@@ -84,17 +83,6 @@ function DataSourceSwitch() {
   );
 }
 
-function ResetButton() {
-  const { phase, reset } = useDemoReset();
-  const pending = phase === 'pending';
-  return (
-    <Button size="sm" onClick={() => void reset()} disabled={pending} aria-label="Reset demo scenario">
-      {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden />}
-      {pending ? 'Resetting...' : 'Reset demo'}
-    </Button>
-  );
-}
-
 /** Top command bar: product context, data source, real backend health, and the demo reset action. */
 export function CommandBar() {
   return (
@@ -112,7 +100,7 @@ export function CommandBar() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <DataSourceSwitch />
         <BackendIndicator />
-        <ResetButton />
+        <ResetDemoControl />
       </div>
     </header>
   );
