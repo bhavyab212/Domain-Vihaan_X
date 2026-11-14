@@ -25,7 +25,7 @@
 | Task ID | Task Title | Priority | Owner | Status | Est. Duration | Dependencies | Requirements |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TSK-001** | Documentation & Governance Revision System | **P0** | Shared | **DONE** | 90 min | None | FR-001–FR-019 |
-| **TSK-002** | Synthetic SaaS Fixtures & One-Click Reset API | **P0** | Dev A | **READY** | 45 min | TSK-001 | FR-017, FR-018 |
+| **TSK-002** | Synthetic SaaS Fixtures & One-Click Reset API | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-003 | FR-017, FR-018 |
 | **TSK-003** | FastAPI App Shell & SQLite WAL Mode Database | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-001 | FR-001, NFR-006 |
 | **TSK-004** | React 18 + Vite Shell & Five Primary UIs Layout | **P0** | Dev B | **READY** | 45 min | TSK-001 | FR-013, NFR-005 |
 | **TSK-005** | Finding Normalization Engine (`FindingSchema`) | **P0** | Dev A | **BACKLOG** | 60 min | TSK-003 | FR-004, NFR-008 |
@@ -57,21 +57,25 @@
 ### TSK-002: Synthetic SaaS Fixtures & One-Click Reset API
 - **Owner:** Developer A
 - **Priority:** `P0`
-- **Description:** Implement `app/demo/provider.py` and endpoint `POST /api/demo/reset`. Restores `test_env/mock_saas/` fixtures to initial state:
-  1. `mock_saas/repo/config/staging.env`: synthetic AWS key `AKIAIOSFODNN7EXAMPLE`.
-  2. `mock_saas/iac/iam_staging.tf`: Terraform IAM policy with `Resource = "*"`.
-  3. `mock_saas/storage/buckets.json`: `acme-prod-db-backups` metadata.
-  4. Flushes SQLite tables and reseeds baseline assets in < 1 second.
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]`)
+- **Description:** Implement `app/demo/provider.py` and endpoint `POST /api/v1/demo/reset`. Restores synthetic SaaS environment from committed baseline `data/demo/mock_saas/` into runtime directory `data/runtime/demo_workspace/mock_saas/`:
+  1. `repo/config/staging.env`: synthetic AWS key `AKIAIOSFODNN7EXAMPLE`.
+  2. `iac/iam_staging.tf`: Terraform IAM policy with wildcard `s3:*` admin permission.
+  3. `storage/buckets.json`: `customer-pii-vault-prod` metadata.
+  4. Flushes SQLite demo records and reseeds baseline assets, findings (provenance `SIMULATED_DEMO`), relationships, and attack paths in < 1 second.
 - **Acceptance Criteria:**
-  - Calling `POST /api/demo/reset` returns HTTP `200 OK` and re-seeds clean state.
+  - Calling `POST /api/v1/demo/reset` returns HTTP `200 OK` with `DemoResetResponse` and re-seeds clean state.
   - Zero real credentials stored or exposed.
+  - Measured reset duration < 1000ms (achieved ~22ms average).
+  - SQLite WAL mode and foreign keys empirically verified.
+  - Non-demo (live assessment) records protected during reset.
 
 ---
 
 ### TSK-003: FastAPI App Shell & SQLite WAL Mode Database
 - **Owner:** Developer A
 - **Priority:** `P0`
-- **Status:** `IN_REVIEW` (App Shell & Health API: `[IMPLEMENTED]` & `[TESTED]`; Database Layer: `[BLOCKED]` pending ADR-005 formal sign-off)
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-005 Accepted)
 - **Description:** Implement clean FastAPI application factory, versioned API router (`/api/v1`), structured logging, centralized exception handlers, safe configuration defaults, and `GET /api/v1/health` with honest scanner telemetry.
 - **Acceptance Criteria:**
   - `GET /api/v1/health` returns HTTP 200 with `status: "healthy"` and `mode: "DEMO_MODE"`.

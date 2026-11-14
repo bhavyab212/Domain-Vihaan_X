@@ -23,15 +23,15 @@
 
 ## 2. Current Project Objective
 
-Establish the collaboration foundation with Claude Code (Developer B) and implement the initial FastAPI application foundation (TSK-003) on task branch `backend/TSK-003-foundation` based on `origin/integration`.
+Implement deterministic synthetic SaaS scenario restoration, isolated runtime workspace management, scoped SQLite WAL database reseeding, and the canonical reset endpoint `POST /api/v1/demo/reset` on stacked branch `backend/TSK-002-demo-reset`.
 
 ---
 
 ## 3. Current Development Phase
 
-- **Current Phase:** **Phase 2 — Core Engine & Interface Development (TSK-003 Foundation In Review)**
-- **Active Task Branch:** `backend/TSK-003-foundation`
-- **Next Phase:** **TSK-002: Synthetic SaaS Fixtures & One-Click Reset API** (Pending ADR-005 resolution and PR merge)
+- **Current Phase:** **Phase 2 — Core Engine & Interface Development (TSK-002 Reset API In Review; TSK-003 Foundation In Review)**
+- **Active Task Branch:** `backend/TSK-002-demo-reset` (stacked on `backend/TSK-003-foundation`)
+- **Next Phase:** **TSK-005: Finding Normalization Engine (`FindingSchema`)**
 
 ---
 
@@ -45,7 +45,7 @@ Establish the collaboration foundation with Claude Code (Developer B) and implem
   4. **Attack Path Investigation** (Hop-by-hop kill chain breakdown, choke-point analysis).
   5. **AI Remediation Center** (Unified diff viewer, human approval modal, live verification re-scan).
 - **Dual Operating Modes:**
-  - **Demo Mode:** Deterministic synthetic test environment (`data/demo/mock_saas/`), preconfigured assets, zero external LLM dependency, zero internet dependency, one-click reset API (`POST /api/v1/demo/reset`), explicit `[SIMULATED]` provenance.
+  - **Demo Mode:** Deterministic synthetic test environment (`data/demo/mock_saas/`), preconfigured assets, zero external LLM dependency, zero internet dependency, one-click reset API (`POST /api/v1/demo/reset`), explicit `[SIMULATED_DEMO]` provenance.
   - **Live Assessment Mode:** Real authorized scanner execution (Gitleaks, Checkov, Trivy, Subfinder), live progress streaming, partial-result preservation, and scanner availability diagnostics.
 - **Backend Reliability & Resilience:**
   - Decoupled from external LLM availability via embedded deterministic rule-based AI engine (`apps/backend/app/ai/rule_fallback.py`).
@@ -61,11 +61,11 @@ Establish the collaboration foundation with Claude Code (Developer B) and implem
 - **ADR-002:** Business Security Graph as Primary Competitive Differentiator (`ACCEPTED`).
 - **ADR-003:** HexStrike-AI as an Underlying Execution Component, Not Core Intelligence (`ACCEPTED`).
 - **ADR-004:** Restricted Scanner Adapter and Isolated Execution Model (`ACCEPTED`).
+- **ADR-005:** SQLite in WAL Mode as Initial Hackathon Database (`ACCEPTED` under delegated architectural authority).
 - **ADR-007:** Human-Approved Remediation for Hackathon MVP (`ACCEPTED`).
 - **ADR-009:** Synthetic Test Assets and Controlled Demonstration Scenario (`ACCEPTED`).
 
 ### Proposed Architecture Awaiting Formal Approval
-- **ADR-005:** SQLite in WAL Mode as Initial Hackathon Database (`PROPOSED`).
 - **ADR-006:** React Flow (`@xyflow/react`) for Graph Visualization (`PROPOSED`).
 - **ADR-008:** Deterministic Contextual Risk Scoring with Structured LLM Explanations (`PROPOSED`).
 - **ADR-010:** Frontend-First Judging Experience & Five Primary UIs (`PROPOSED`).

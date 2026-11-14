@@ -29,10 +29,11 @@ data/
 ## 2. Operating Mode Principles
 
 ### DEMO MODE (`DEFAULT_OPERATING_MODE=DEMO_MODE`)
-- **Zero Internet / Zero LLM Dependency:** All data is loaded directly from `data/demo/` within 5 milliseconds.
+- **Zero Internet / Zero LLM Dependency:** All data is loaded directly from `data/demo/` in sub-second duration.
 - **Repeatable & Predictable:** Every judge walkthrough sees the exact same high-impact attack path.
-- **Explicit Provenance:** All findings loaded from `data/demo/` carry `provenance: "SIMULATED"` and `isSimulated: true`.
-- **One-Click Reset:** Calling `POST /api/v1/demo/reset` instantly restores the application to this baseline.
+- **Explicit Provenance:** All findings loaded from `data/demo/` carry `provenance: "SIMULATED_DEMO"` and `isSimulated: true`.
+- **Runtime Workspace Isolation:** The committed fixtures under `data/demo/mock_saas/` serve as the immutable baseline. The reset operation restores a clean runtime working copy at `data/runtime/demo_workspace/mock_saas/`, preventing tests or remediation runs from modifying tracked files.
+- **One-Click Reset:** Calling `POST /api/v1/demo/reset` instantly restores the database and synthetic filesystem in ~25ms.
 
 ### LIVE ASSESSMENT MODE (`LIVE_ASSESSMENT_MODE`)
 - **Authorized Execution Only:** Runs actual CLI scanners against targets in `settings.ALLOWED_TARGET_DOMAINS`.
