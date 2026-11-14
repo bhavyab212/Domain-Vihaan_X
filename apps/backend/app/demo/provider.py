@@ -76,24 +76,138 @@ class DemoScenarioProvider:
                     f"Scenario manifest missing required section: '{key}'"
                 )
 
-        # Validate referential integrity between assets, findings, and relationships
-        asset_ids = {asset["id"] for asset in scenario.get("assets", []) if "id" in asset}
-        if not asset_ids:
-            raise DomainVihaanXException("Canonical scenario contains no valid assets.")
+        valid_severities = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"}
 
-        for finding in scenario.get("findings", []):
+        # 1. Validate assets
+        assets = scenario.get("assets", [])
+        if not assets or not isinstance(assets, list):
+            raise DomainVihaanXException("Canonical scenario contains no valid assets list.")
+
+        asset_ids = set()
+        for asset in assets:
+            a_id = asset.get("id")
+            if not a_id:
+                raise DomainVihaanXException("Asset missing mandatory 'id' field.")
+            if a_id in asset_ids:
+                raise DomainVihaanXException(f"Duplicate asset ID '{a_id}' detected in scenario.")
+            asset_ids.add(a_id)
+
+            if not asset.get("name") or not asset.get("type"):
+                raise DomainVihaanXException(f"Asset '{a_id}' missing mandatory name or type.")
+            crit = asset.get("criticality")
+            if crit and crit not in valid_severities:
+                raise DomainVihaanXException(
+                    f"Asset '{a_id}' has invalid criticality '{crit}'. Expected one of {valid_severities}"
+                )
+
+        # 2. Validate findings
+        findings = scenario.get("findings", [])
+        finding_ids = set()
+        for finding in findings:
+            f_id = finding.get("id")
+            if not f_id:
+                raise DomainVihaanXException("Finding missing mandatory 'id' field.")
+            if f_id in finding_ids:
+                raise DomainVihaanXException(f"Duplicate finding ID '{f_id}' detected in scenario.")
+            finding_ids.add(f_id)
+
             f_asset = finding.get("assetId")
             if not f_asset or f_asset not in asset_ids:
                 raise DomainVihaanXException(
-                    f"Referential integrity failure: finding '{finding.get('id')}' references unknown asset '{f_asset}'"
+                    f"Referential integrity failure: finding '{f_id}' references unknown asset '{f_asset}'"
                 )
 
-        for rel in scenario.get("relationships", []):
-            src, tgt = rel.get("source"), rel.get("target")
-            if src not in asset_ids or tgt not in asset_ids:
+            sev = finding.get("severity")
+            if not sev or sev not in valid_severities:
                 raise DomainVihaanXException(
-                    f"Referential integrity failure: relationship '{rel.get('id')}' references unknown asset ({src} -> {tgt})"
+                    f"Finding '{f_id}' has invalid severity '{sev}'. Expected one of {valid_severities}"
                 )
+
+            cvss = finding.get("cvssScore")
+            if cvss is not None:
+                if not (0.0 <= float(cvss) <= 10.0):
+                    raise DomainVihaanXException(
+                        f"Finding '{f_id}' cvssScore {cvss} out of bounds [0.0, 10.0]."
+                    )
+
+        # 3. Validate relationships
+        relationships = scenario.get("relationships", [])
+        rel_ids = set()
+        for rel in relationships:
+            r_id = rel.get("id")
+            if not r_id:
+                raise DomainVihaanXException("Relationship missing mandatory 'id' field.")
+            if r_id in rel_ids:
+                raise DomainVihaanXException(f"Duplicate relationship ID '{r_id}' detected in scenario.")
+            rel_ids.add(r_id)
+
+            src, tgt = rel.get("source"), rel.get("target")
+            if not src or src not in asset_ids or not tgt or tgt not in asset_ids:
+                raise DomainVihaanXException(
+                    f"Referential integrity failure: relationship '{r_id}' references unknown asset ({src} -> {tgt})"
+                )
+
+            conf = rel.get("confidence")
+            if conf is not None:
+                if not (0.0 <= float(conf) <= 1.0):
+                    raise DomainVihaanXException(
+                        f"Relationship '{r_id}' confidence {conf} out of bounds [0.0, 1.0]."
+                    )
+
+        # 4. Validate attack paths
+        attack_paths = scenario.get("attackPaths", [])
+        path_ids = set()
+        for path in attack_paths:
+            p_id = path.get("id")
+            if not p_id:
+                raise DomainVihaanXException("Attack path missing mandatory 'id' field.")
+            if p_id in path_ids:
+                raise DomainVihaanXException(f"Duplicate attack path ID '{p_id}' detected in scenario.")
+            path_ids.add(p_id)
+
+            entry_asset = path.get("entryPointAssetId")
+            if not entry_asset or entry_asset not in asset_ids:
+                raise DomainVihaanXException(
+                    f"Referential integrity failure: attack path '{p_id}' entryPointAssetId '{entry_asset}' not found in assets."
+                )
+
+            crown_asset = path.get("crownJewelAssetId")
+            if not crown_asset or crown_asset not in asset_ids:
+                raise DomainVihaanXException(
+                    f"Referential integrity failure: attack path '{p_id}' crownJewelAssetId '{crown_asset}' not found in assets."
+                )
+
+            p_sev = path.get("severity")
+            if p_sev and p_sev not in valid_severities:
+                raise DomainVihaanXException(
+                    f"Attack path '{p_id}' has invalid severity '{p_sev}'. Expected one of {valid_severities}"
+                )
+
+            p_conf = path.get("confidenceScore")
+            if p_conf is not None:
+                if not (0.0 <= float(p_conf) <= 1.0):
+                    raise DomainVihaanXException(
+                        f"Attack path '{p_id}' confidenceScore {p_conf} out of bounds [0.0, 1.0]."
+                    )
+
+            steps = path.get("steps")
+            if not steps or not isinstance(steps, list):
+                raise DomainVihaanXException(
+                    f"Attack path '{p_id}' must contain a non-empty list of steps."
+                )
+
+            for step_idx, step in enumerate(steps, start=1):
+                s_asset = step.get("assetId")
+                if not s_asset or s_asset not in asset_ids:
+                    raise DomainVihaanXException(
+                        f"Referential integrity failure: attack path '{p_id}' step {step_idx} references unknown asset '{s_asset}'"
+                    )
+
+                s_find = step.get("findingId")
+                if s_find and s_find not in finding_ids:
+                    raise DomainVihaanXException(
+                        f"Referential integrity failure: attack path '{p_id}' step {step_idx} references unknown finding '{s_find}'"
+                    )
 
         return scenario
 
@@ -232,21 +346,78 @@ class DemoScenarioProvider:
     def reset_demo(self, db: Session) -> DemoResetResponse:
         """
         Executes full deterministic demo reset:
-        Validates scenario, restores runtime fixtures, seeds database, and verifies WAL.
+        Validates scenario, performs two-phase filesystem staging with atomic swap,
+        reseeds database transactionally with automatic rollback on DB failure,
+        and strictly verifies SQLite WAL mode.
         """
         start_time = time.perf_counter()
 
-        # Step 1: Validate scenario
+        # Step 1: Validate scenario strictly
         scenario = self.load_scenario()
 
-        # Step 2: Restore runtime synthetic files
-        restored_path = self.restore_synthetic_filesystem()
+        # Step 2: Stage filesystem in isolated staging location
+        if not self.baseline_fixtures_path.exists():
+            raise ResourceNotFoundError(
+                f"Baseline synthetic fixtures missing at {self.baseline_fixtures_path}"
+            )
 
-        # Step 3: Reseed database transactionally
-        counts = self.reseed_database(db, scenario)
+        active_path = self.runtime_workspace_path.resolve()
+        runtime_root = self.runtime_base_dir.resolve()
+        try:
+            active_path.relative_to(runtime_root)
+        except ValueError:
+            raise DomainVihaanXException(
+                f"Path traversal detected: destination {active_path} escapes {runtime_root}"
+            )
 
-        # Step 4: Verify SQLite WAL status
-        wal_status = verify_sqlite_wal(db)
+        parent_dir = active_path.parent
+        parent_dir.mkdir(parents=True, exist_ok=True)
+
+        staging_path = parent_dir / f"{active_path.name}_staging"
+        backup_path = parent_dir / f"{active_path.name}_backup"
+
+        # Clean prior staging/backup if left over
+        if staging_path.exists():
+            shutil.rmtree(staging_path)
+        if backup_path.exists():
+            shutil.rmtree(backup_path)
+
+        # Copy baseline to staging
+        shutil.copytree(self.baseline_fixtures_path, staging_path)
+
+        # Atomic swap phase 1: backup active workspace if exists
+        prior_active_existed = active_path.exists()
+        if prior_active_existed:
+            active_path.rename(backup_path)
+
+        # Atomic swap phase 2: move staging to active
+        staging_path.rename(active_path)
+
+        # Step 3: Reseed database transactionally with filesystem rollback guarantee
+        try:
+            counts = self.reseed_database(db, scenario)
+            wal_status = verify_sqlite_wal(db)
+            if not wal_status.get("wal_active", False) or not wal_status.get("foreign_keys_enabled", False):
+                raise DomainVihaanXException(
+                    f"SQLite WAL verification failed: {wal_status}"
+                )
+
+            # Reseed and verification succeeded - clean up backup
+            if backup_path.exists():
+                shutil.rmtree(backup_path)
+
+        except Exception as exc:
+            # Reseed failed: rollback database and restore filesystem to prior state
+            db.rollback()
+            if active_path.exists():
+                shutil.rmtree(active_path)
+            if prior_active_existed and backup_path.exists():
+                backup_path.rename(active_path)
+            if staging_path.exists():
+                shutil.rmtree(staging_path)
+            raise DomainVihaanXException(
+                f"Demo reset aborted due to database failure. Prior state restored: {exc}"
+            ) from exc
 
         duration_ms = (time.perf_counter() - start_time) * 1000.0
 
@@ -259,7 +430,7 @@ class DemoScenarioProvider:
             findingsCount=counts["findings"],
             relationshipsCount=counts["relationships"],
             attackPathsCount=counts["attack_paths"],
-            runtimeWorkspace=str(restored_path),
+            runtimeWorkspace=str(active_path),
             durationMs=round(duration_ms, 2),
             walVerified=wal_status.get("wal_active", False),
             resetAt=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
