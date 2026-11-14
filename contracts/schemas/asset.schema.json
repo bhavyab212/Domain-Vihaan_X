@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domain-vihaan-x.local/schemas/asset.schema.json",
+  "title": "DigitalAsset",
+  "type": "object",
+  "required": ["id", "name", "type", "environment", "criticality", "owner", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "type": {
+      "type": "string",
+      "enum": ["REPOSITORY", "CLOUD_ACCOUNT", "DOMAIN", "WEB_APPLICATION", "API_ENDPOINT", "DATABASE"]
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["PRODUCTION", "STAGING", "DEVELOPMENT"]
+    },
+    "criticality": {
+      "type": "string",
+      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+    },
+    "owner": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

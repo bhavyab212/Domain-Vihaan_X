@@ -1,0 +1,38 @@
+[
+  {
+    "id": "find-sec-01",
+    "title": "Committed AWS IAM Secret Key in Staging Config",
+    "description": "A live AWS secret access key was detected in staging.env committed to the source repository.",
+    "severity": "CRITICAL",
+    "scanner": "gitleaks",
+    "assetId": "asset-repo-01",
+    "cveId": null,
+    "cvssScore": 9.8,
+    "provenance": "SIMULATED",
+    "location": {
+      "file": "config/staging.env",
+      "line": 14
+    },
+    "remediationGuidance": "Revoke compromised IAM key immediately and inject secrets via environment vault.",
+    "status": "OPEN",
+    "discoveredAt": "2026-11-14T10:05:00Z"
+  },
+  {
+    "id": "find-iac-01",
+    "title": "Overprivileged IAM Role Allows S3 Wildcard Admin",
+    "description": "Terraform configuration grants s3:* privileges across all production buckets to developer roles.",
+    "severity": "HIGH",
+    "scanner": "checkov",
+    "assetId": "asset-cloud-01",
+    "cveId": null,
+    "cvssScore": 8.1,
+    "provenance": "SIMULATED",
+    "location": {
+      "file": "iac/iam_staging.tf",
+      "line": 28
+    },
+    "remediationGuidance": "Restrict IAM policy to least-privilege actions on scoped resource ARNs.",
+    "status": "OPEN",
+    "discoveredAt": "2026-11-14T10:06:00Z"
+  }
+]

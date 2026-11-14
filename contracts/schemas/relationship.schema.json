@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domain-vihaan-x.local/schemas/relationship.schema.json",
+  "title": "AssetRelationship",
+  "type": "object",
+  "required": ["id", "source", "target", "relationship", "inferred"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string"
+    },
+    "relationship": {
+      "type": "string",
+      "enum": ["STORES_CREDENTIAL_FOR", "GRANTS_ACCESS_TO", "DEPENDS_ON", "EXPOSES", "CAN_PIVOT_TO"]
+    },
+    "inferred": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    }
+  },
+  "additionalProperties": false
+}

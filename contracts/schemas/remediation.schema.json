@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domain-vihaan-x.local/schemas/remediation.schema.json",
+  "title": "RemediationAction",
+  "type": "object",
+  "required": ["id", "findingId", "title", "description", "requiresApproval", "status", "createdAt"],
+  "properties": {
+    "id": { "type": "string" },
+    "findingId": { "type": "string" },
+    "attackPathId": { "type": "string" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "patchDiff": { "type": "string" },
+    "shellScript": { "type": "string" },
+    "requiresApproval": { "type": "boolean" },
+    "status": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED", "APPLIED", "FAILED", "REJECTED"]
+    },
+    "verificationStatus": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "PASSED", "FAILED"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

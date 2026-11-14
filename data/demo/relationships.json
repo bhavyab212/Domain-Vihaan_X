@@ -1,0 +1,18 @@
+[
+  {
+    "id": "rel-01",
+    "source": "asset-repo-01",
+    "target": "asset-cloud-01",
+    "relationship": "STORES_CREDENTIAL_FOR",
+    "inferred": true,
+    "confidence": 0.98
+  },
+  {
+    "id": "rel-02",
+    "source": "asset-cloud-01",
+    "target": "asset-storage-01",
+    "relationship": "GRANTS_ACCESS_TO",
+    "inferred": true,
+    "confidence": 0.95
+  }
+]

@@ -1,0 +1,144 @@
+{
+  "scenarioId": "demo-scenario-saas-breach",
+  "name": "SaaS Cloud Breach via Leaked Staging Credential",
+  "description": "Deterministic canonical demo scenario showcasing cross-domain attack path discovery from repository secret to crown jewel S3 PII vault.",
+  "isSimulated": true,
+  "assets": [
+    {
+      "id": "asset-repo-01",
+      "name": "saas-core-api",
+      "type": "REPOSITORY",
+      "environment": "PRODUCTION",
+      "criticality": "CRITICAL",
+      "owner": "Engineering Team",
+      "metadata": {
+        "gitRemote": "https://github.com/mock-saas/core-api",
+        "branch": "main"
+      },
+      "createdAt": "2026-11-14T10:00:00Z",
+      "updatedAt": "2026-11-14T10:00:00Z"
+    },
+    {
+      "id": "asset-cloud-01",
+      "name": "aws-production-account",
+      "type": "CLOUD_ACCOUNT",
+      "environment": "PRODUCTION",
+      "criticality": "CRITICAL",
+      "owner": "DevOps Team",
+      "metadata": {
+        "provider": "AWS",
+        "accountId": "123456789012"
+      },
+      "createdAt": "2026-11-14T10:00:00Z",
+      "updatedAt": "2026-11-14T10:00:00Z"
+    },
+    {
+      "id": "asset-storage-01",
+      "name": "s3-customer-pii-vault",
+      "type": "DATABASE",
+      "environment": "PRODUCTION",
+      "criticality": "CRITICAL",
+      "owner": "Security Team",
+      "metadata": {
+        "arn": "arn:aws:s3:::customer-pii-vault-prod"
+      },
+      "createdAt": "2026-11-14T10:00:00Z",
+      "updatedAt": "2026-11-14T10:00:00Z"
+    }
+  ],
+  "findings": [
+    {
+      "id": "find-sec-01",
+      "title": "Committed AWS IAM Secret Key in Staging Config",
+      "description": "A live AWS secret access key was detected in staging.env committed to the source repository.",
+      "severity": "CRITICAL",
+      "scanner": "gitleaks",
+      "assetId": "asset-repo-01",
+      "cveId": null,
+      "cvssScore": 9.8,
+      "provenance": "SIMULATED",
+      "location": {
+        "file": "config/staging.env",
+        "line": 14
+      },
+      "remediationGuidance": "Revoke compromised IAM key immediately and inject secrets via environment vault.",
+      "status": "OPEN",
+      "discoveredAt": "2026-11-14T10:05:00Z"
+    },
+    {
+      "id": "find-iac-01",
+      "title": "Overprivileged IAM Role Allows S3 Wildcard Admin",
+      "description": "Terraform configuration grants s3:* privileges across all production buckets to developer roles.",
+      "severity": "HIGH",
+      "scanner": "checkov",
+      "assetId": "asset-cloud-01",
+      "cveId": null,
+      "cvssScore": 8.1,
+      "provenance": "SIMULATED",
+      "location": {
+        "file": "iac/iam_staging.tf",
+        "line": 28
+      },
+      "remediationGuidance": "Restrict IAM policy to least-privilege actions on scoped resource ARNs.",
+      "status": "OPEN",
+      "discoveredAt": "2026-11-14T10:06:00Z"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel-01",
+      "source": "asset-repo-01",
+      "target": "asset-cloud-01",
+      "relationship": "STORES_CREDENTIAL_FOR",
+      "inferred": true,
+      "confidence": 0.98
+    },
+    {
+      "id": "rel-02",
+      "source": "asset-cloud-01",
+      "target": "asset-storage-01",
+      "relationship": "GRANTS_ACCESS_TO",
+      "inferred": true,
+      "confidence": 0.95
+    }
+  ],
+  "attackPaths": [
+    {
+      "id": "path-01",
+      "title": "Public Repository Secret to Crown Jewel S3 Data Exfiltration",
+      "summary": "An attacker leverages a committed AWS key in repository staging config to assume overprivileged IAM role and exfiltrate customer PII from S3.",
+      "severity": "CRITICAL",
+      "confidenceScore": 0.96,
+      "isSimulated": true,
+      "entryPointAssetId": "asset-repo-01",
+      "crownJewelAssetId": "asset-storage-01",
+      "status": "ACTIVE",
+      "createdAt": "2026-11-14T10:10:00Z",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "assetId": "asset-repo-01",
+          "findingId": "find-sec-01",
+          "description": "Attacker extracts AWS credentials from git history in config/staging.env.",
+          "technique": "Unsecured Credentials (T1552.001)",
+          "mitreTactic": "Credential Access"
+        },
+        {
+          "stepNumber": 2,
+          "assetId": "asset-cloud-01",
+          "findingId": "find-iac-01",
+          "description": "Attacker authenticates via CLI and assumes overprivileged StagingDeployer role.",
+          "technique": "Valid Accounts (T1078)",
+          "mitreTactic": "Privilege Escalation"
+        },
+        {
+          "stepNumber": 3,
+          "assetId": "asset-storage-01",
+          "description": "Attacker dumps sensitive customer PII records from s3://customer-pii-vault-prod.",
+          "technique": "Data from Cloud Storage Object (T1530)",
+          "mitreTactic": "Exfiltration"
+        }
+      ]
+    }
+  ]
+}

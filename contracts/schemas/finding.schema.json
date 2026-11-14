@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domain-vihaan-x.local/schemas/finding.schema.json",
+  "title": "SecurityFinding",
+  "type": "object",
+  "required": ["id", "title", "description", "severity", "scanner", "assetId", "provenance", "status", "discoveredAt"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"]
+    },
+    "scanner": {
+      "type": "string"
+    },
+    "assetId": {
+      "type": "string"
+    },
+    "cveId": {
+      "type": "string"
+    },
+    "cvssScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "provenance": {
+      "type": "string",
+      "enum": ["OBSERVED", "INFERRED", "SIMULATED"]
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer" },
+        "resource": { "type": "string" }
+      }
+    },
+    "remediationGuidance": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["OPEN", "IN_REMEDIATION", "RESOLVED", "ACCEPTED_RISK"]
+    },
+    "discoveredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,14 @@
+{
+  "buckets": [
+    {
+      "bucketName": "customer-pii-vault-prod",
+      "region": "us-east-1",
+      "encryption": "AES256",
+      "publicAccessBlock": true,
+      "classification": "RESTRICTED_PII",
+      "recordCount": 154200,
+      "sensitiveFields": ["full_name", "email", "hashed_password", "ssn_last4", "billing_address"],
+      "criticality": "CRITICAL"
+    }
+  ]
+}

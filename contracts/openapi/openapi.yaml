@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: Domain-Vihaan_X REST API Contract
+  version: 1.0.0
+  description: >
+    Canonical API contract for the Domain-Vihaan_X Unified Cybersecurity Intelligence Platform.
+    Adheres strictly to docs/02-architecture/API_CONTRACT.md.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Control Plane
+
+paths:
+  /health:
+    get:
+      summary: System Health and Subsystem Status
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: System is operational
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /assets:
+    get:
+      summary: List Registered Digital Assets
+      operationId: listAssets
+      tags:
+        - Assets
+      responses:
+        '200':
+          description: List of digital assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Asset'
+    post:
+      summary: Register a Digital Asset
+      operationId: registerAsset
+      tags:
+        - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetCreateRequest'
+      responses:
+        '201':
+          description: Asset successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+
+  /assessments/trigger:
+    post:
+      summary: Trigger Security Assessment
+      operationId: triggerAssessment
+      tags:
+        - Assessments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentTriggerRequest'
+      responses:
+        '202':
+          description: Assessment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentStatus'
+
+  /assessments/{assessment_id}/status:
+    get:
+      summary: Poll Assessment Status
+      operationId: getAssessmentStatus
+      tags:
+        - Assessments
+      parameters:
+        - name: assessment_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assessment execution status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentStatus'
+
+  /findings:
+    get:
+      summary: Query Normalized Security Findings
+      operationId: listFindings
+      tags:
+        - Findings
+      parameters:
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL]
+        - name: asset_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of findings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Finding'
+
+  /graph:
+    get:
+      summary: Query Business Security Graph
+      operationId: getSecurityGraph
+      tags:
+        - Graph
+      responses:
+        '200':
+          description: Complete node-link representation of security topology
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityGraph'
+
+  /remediations:
+    get:
+      summary: List Proposed Remediations
+      operationId: listRemediations
+      tags:
+        - Remediation
+      responses:
+        '200':
+          description: List of remediation actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RemediationAction'
+
+  /remediations/{remediation_id}/approve:
+    post:
+      summary: Human Approval and Execution Gate for Remediation
+      operationId: approveRemediation
+      tags:
+        - Remediation
+      parameters:
+        - name: remediation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediationApproveRequest'
+      responses:
+        '200':
+          description: Remediation approved and applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationAction'
+
+  /demo/reset:
+    post:
+      summary: Reset to Canonical Synthetic Scenario
+      operationId: resetDemo
+      tags:
+        - Demo
+      responses:
+        '200':
+          description: Scenario reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentStatus'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, mode]
+      properties:
+        status:
+          type: string
+          example: healthy
+        mode:
+          type: string
+          enum: [DEMO_MODE, LIVE_ASSESSMENT_MODE]
+        scanners:
+          type: object
+
+    Asset:
+      type: object
+      required: [id, name, type, environment, criticality, owner, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [REPOSITORY, CLOUD_ACCOUNT, DOMAIN, WEB_APPLICATION, API_ENDPOINT, DATABASE]
+        environment:
+          type: string
+          enum: [PRODUCTION, STAGING, DEVELOPMENT]
+        criticality:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        owner:
+          type: string
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AssetCreateRequest:
+      type: object
+      required: [name, type, owner]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [REPOSITORY, CLOUD_ACCOUNT, DOMAIN, WEB_APPLICATION, API_ENDPOINT, DATABASE]
+        environment:
+          type: string
+          enum: [PRODUCTION, STAGING, DEVELOPMENT]
+          default: PRODUCTION
+        criticality:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        owner:
+          type: string
+        metadata:
+          type: object
+
+    Finding:
+      type: object
+      required: [id, title, description, severity, scanner, assetId, provenance, status, discoveredAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL]
+        scanner:
+          type: string
+        assetId:
+          type: string
+        cveId:
+          type: string
+        cvssScore:
+          type: number
+        provenance:
+          type: string
+          enum: [OBSERVED, INFERRED, SIMULATED]
+        location:
+          type: object
+          properties:
+            file:
+              type: string
+            line:
+              type: integer
+            resource:
+              type: string
+        remediationGuidance:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, IN_REMEDIATION, RESOLVED, ACCEPTED_RISK]
+        discoveredAt:
+          type: string
+          format: date-time
+
+    SecurityGraph:
+      type: object
+      required: [nodes, edges, updatedAt]
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [id, label, type]
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              type:
+                type: string
+                enum: [ASSET, FINDING, IDENTITY, EXPLOIT_TARGET]
+              severity:
+                type: string
+              data:
+                type: object
+        edges:
+          type: array
+          items:
+            type: object
+            required: [id, source, target, relationship, inferred]
+            properties:
+              id:
+                type: string
+              source:
+                type: string
+              target:
+                type: string
+              relationship:
+                type: string
+                enum: [STORES_CREDENTIAL_FOR, GRANTS_ACCESS_TO, DEPENDS_ON, EXPOSES, CAN_PIVOT_TO]
+              inferred:
+                type: boolean
+              confidence:
+                type: number
+        updatedAt:
+          type: string
+          format: date-time
+
+    RemediationAction:
+      type: object
+      required: [id, findingId, title, description, requiresApproval, status, createdAt]
+      properties:
+        id:
+          type: string
+        findingId:
+          type: string
+        attackPathId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        patchDiff:
+          type: string
+        shellScript:
+          type: string
+        requiresApproval:
+          type: boolean
+        status:
+          type: string
+          enum: [PENDING, APPROVED, APPLIED, FAILED, REJECTED]
+        verificationStatus:
+          type: string
+          enum: [UNVERIFIED, PASSED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+
+    RemediationApproveRequest:
+      type: object
+      required: [approvedBy]
+      properties:
+        approvedBy:
+          type: string
+        comments:
+          type: string
+
+    AssessmentTriggerRequest:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [DEMO_MODE, LIVE_ASSESSMENT_MODE]
+        targetId:
+          type: string
+
+    AssessmentStatus:
+      type: object
+      required: [id, mode, status, progressPercent, currentStepMessage, totalAssets, scannedAssets, findingsCount, criticalCount, highCount, mediumCount, lowCount, startedAt]
+      properties:
+        id:
+          type: string
+        mode:
+          type: string
+          enum: [DEMO_MODE, LIVE_ASSESSMENT_MODE]
+        status:
+          type: string
+          enum: [idle, running, completed, failed, cancelled]
+        progressPercent:
+          type: integer
+        currentStepMessage:
+          type: string
+        totalAssets:
+          type: integer
+        scannedAssets:
+          type: integer
+        findingsCount:
+          type: integer
+        criticalCount:
+          type: integer
+        highCount:
+          type: integer
+        mediumCount:
+          type: integer
+        lowCount:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time

@@ -1,0 +1,39 @@
+[
+  {
+    "id": "path-01",
+    "title": "Public Repository Secret to Crown Jewel S3 Data Exfiltration",
+    "summary": "An attacker leverages a committed AWS key in repository staging config to assume overprivileged IAM role and exfiltrate customer PII from S3.",
+    "severity": "CRITICAL",
+    "confidenceScore": 0.96,
+    "isSimulated": true,
+    "entryPointAssetId": "asset-repo-01",
+    "crownJewelAssetId": "asset-storage-01",
+    "status": "ACTIVE",
+    "createdAt": "2026-11-14T10:10:00Z",
+    "steps": [
+      {
+        "stepNumber": 1,
+        "assetId": "asset-repo-01",
+        "findingId": "find-sec-01",
+        "description": "Attacker extracts AWS credentials from git history in config/staging.env.",
+        "technique": "Unsecured Credentials (T1552.001)",
+        "mitreTactic": "Credential Access"
+      },
+      {
+        "stepNumber": 2,
+        "assetId": "asset-cloud-01",
+        "findingId": "find-iac-01",
+        "description": "Attacker authenticates via CLI and assumes overprivileged StagingDeployer role.",
+        "technique": "Valid Accounts (T1078)",
+        "mitreTactic": "Privilege Escalation"
+      },
+      {
+        "stepNumber": 3,
+        "assetId": "asset-storage-01",
+        "description": "Attacker dumps sensitive customer PII records from s3://customer-pii-vault-prod.",
+        "technique": "Data from Cloud Storage Object (T1530)",
+        "mitreTactic": "Exfiltration"
+      }
+    ]
+  }
+]

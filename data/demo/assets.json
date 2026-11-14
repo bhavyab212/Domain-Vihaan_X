@@ -1,0 +1,43 @@
+[
+  {
+    "id": "asset-repo-01",
+    "name": "saas-core-api",
+    "type": "REPOSITORY",
+    "environment": "PRODUCTION",
+    "criticality": "CRITICAL",
+    "owner": "Engineering Team",
+    "metadata": {
+      "gitRemote": "https://github.com/mock-saas/core-api",
+      "branch": "main"
+    },
+    "createdAt": "2026-11-14T10:00:00Z",
+    "updatedAt": "2026-11-14T10:00:00Z"
+  },
+  {
+    "id": "asset-cloud-01",
+    "name": "aws-production-account",
+    "type": "CLOUD_ACCOUNT",
+    "environment": "PRODUCTION",
+    "criticality": "CRITICAL",
+    "owner": "DevOps Team",
+    "metadata": {
+      "provider": "AWS",
+      "accountId": "123456789012"
+    },
+    "createdAt": "2026-11-14T10:00:00Z",
+    "updatedAt": "2026-11-14T10:00:00Z"
+  },
+  {
+    "id": "asset-storage-01",
+    "name": "s3-customer-pii-vault",
+    "type": "DATABASE",
+    "environment": "PRODUCTION",
+    "criticality": "CRITICAL",
+    "owner": "Security Team",
+    "metadata": {
+      "arn": "arn:aws:s3:::customer-pii-vault-prod"
+    },
+    "createdAt": "2026-11-14T10:00:00Z",
+    "updatedAt": "2026-11-14T10:00:00Z"
+  }
+]
