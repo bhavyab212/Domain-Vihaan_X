@@ -40,10 +40,32 @@ export type AssetFlowData = {
   assetType?: AssetType;
   environment?: Environment;
   criticality?: Criticality;
+  /** Business owner exactly as supplied by the asset record. */
+  owner?: string;
   /** One metadata value taken verbatim from the asset (branch, provider or ARN); never invented. */
   metaLine?: string;
   severity?: SeverityLevel;
   /** True only for local preview fixtures. Assets carry no provenance field in the API contract. */
+  simulated: boolean;
+  onPath: boolean;
+  dim: boolean;
+  [key: string]: unknown;
+};
+
+/**
+ * Identity card data. An IdentityNode exists ONLY when the graph payload itself says `type: "IDENTITY"`; nothing
+ * is promoted to an identity to make the graph look richer. When the node is backed by an asset record whose real
+ * name differs from the node label, that real asset is shown so the label can never stand in for it.
+ */
+export type IdentityFlowData = {
+  kind: 'identity';
+  label: string;
+  /** Real asset record behind this node, when the inventory has one. */
+  backingAsset?: { name: string; typeLabel: string };
+  environment?: Environment;
+  criticality?: Criticality;
+  owner?: string;
+  severity?: SeverityLevel;
   simulated: boolean;
   onPath: boolean;
   dim: boolean;
@@ -63,8 +85,9 @@ export type FindingFlowData = {
 };
 
 export type AssetFlowNode = Node<AssetFlowData, 'asset'>;
+export type IdentityFlowNode = Node<IdentityFlowData, 'identity'>;
 export type FindingFlowNode = Node<FindingFlowData, 'finding'>;
-export type GraphFlowNode = AssetFlowNode | FindingFlowNode;
+export type GraphFlowNode = AssetFlowNode | IdentityFlowNode | FindingFlowNode;
 
 export type RelationshipEdgeData = {
   relationship: GraphRelationship;
@@ -74,6 +97,8 @@ export type RelationshipEdgeData = {
   onPath: boolean;
   /** Touches the selected node. */
   connected: boolean;
+  /** This relationship itself is the selected item. */
+  selected: boolean;
   dim: boolean;
   /** Flow animation: only ever true for on-path edges, and never under reduced motion. */
   animated: boolean;
@@ -85,6 +110,7 @@ export type RelationshipEdgeData = {
 export type RelationshipFlowEdge = Edge<RelationshipEdgeData, 'relationship'>;
 
 export const NODE_TYPE_ASSET = 'asset';
+export const NODE_TYPE_IDENTITY = 'identity';
 export const NODE_TYPE_FINDING = 'finding';
 export const EDGE_TYPE_RELATIONSHIP = 'relationship';
 
@@ -106,6 +132,8 @@ export const NO_HIGHLIGHT: Highlight = { nodes: new Set<string>(), edges: new Se
 
 export interface GraphView {
   selectedId: string | null;
+  /** A selected relationship (mutually exclusive with a selected node at the view level). */
+  selectedEdgeId?: string | null;
   highlight: Highlight;
   reducedMotion: boolean;
 }
@@ -225,6 +253,28 @@ export function buildFlowNodes(
 
     const asset = assetById.get(node.id);
     const assetType = nodeAssetType(node, asset);
+
+    if (node.type === 'IDENTITY') {
+      const differs = asset !== undefined && asset.name !== node.label;
+      return {
+        ...common,
+        type: NODE_TYPE_IDENTITY,
+        ariaLabel: `Identity: ${node.label}${node.severity ? `, ${node.severity.toLowerCase()} severity` : ''}`,
+        data: {
+          kind: 'identity',
+          label: node.label,
+          backingAsset: differs && asset && assetType ? { name: asset.name, typeLabel: ASSET_TYPE_LABEL[assetType] } : undefined,
+          environment: asset?.environment,
+          criticality: asset?.criticality,
+          owner: asset?.owner,
+          severity: node.severity,
+          simulated,
+          onPath: false,
+          dim: false,
+        },
+      };
+    }
+
     return {
       ...common,
       type: NODE_TYPE_ASSET,
@@ -239,6 +289,7 @@ export function buildFlowNodes(
         assetType,
         environment: asset?.environment,
         criticality: asset?.criticality,
+        owner: asset?.owner,
         metaLine: metadataLine(asset),
         severity: node.severity,
         simulated,
@@ -299,8 +350,11 @@ export function buildFlowEdges(
     .filter((edge) => positions.has(edge.source) && positions.has(edge.target))
     .map((edge): RelationshipFlowEdge => {
       const onPath = view.highlight.edges.has(edge.id);
-      const connected = view.selectedId !== null && (edge.source === view.selectedId || edge.target === view.selectedId);
-      const dim = pathActive ? !onPath : view.selectedId !== null && !connected;
+      const selected = view.selectedEdgeId === edge.id;
+      const connected = view.selectedId != null && (edge.source === view.selectedId || edge.target === view.selectedId);
+      const anySelection = view.selectedId != null || view.selectedEdgeId != null;
+      // A path highlight wins; otherwise a selection dims everything that is not part of it.
+      const dim = pathActive ? !onPath && !selected : anySelection && !connected && !selected;
       const color = edgeColor(edge, onPath);
       const sublabel = edgeSublabel(edge);
       const { sourceHandle, targetHandle } = edgeHandles(positions.get(edge.source), positions.get(edge.target));
@@ -312,8 +366,10 @@ export function buildFlowEdges(
         sourceHandle,
         targetHandle,
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-        focusable: false,
-        selectable: false,
+        // Clicking a relationship selects it, so its type, confidence and endpoints can be inspected. Whether
+        // that does anything is up to the canvas (it only wires edge clicks when given `onSelectEdge`).
+        selectable: true,
+        selected,
         ariaLabel: `${humanizeRelationship(edge.relationship)}, ${sublabel}, from ${labels.get(edge.source) ?? edge.source} to ${
           labels.get(edge.target) ?? edge.target
         }`,
@@ -323,6 +379,7 @@ export function buildFlowEdges(
           confidence: edge.confidence,
           onPath,
           connected,
+          selected,
           dim,
           // Only the active potential path animates, and never under prefers-reduced-motion.
           animated: onPath && !view.reducedMotion,
