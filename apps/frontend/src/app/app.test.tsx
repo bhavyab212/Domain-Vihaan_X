@@ -299,10 +299,9 @@ describe('finding evidence and remediation honesty', () => {
     stubOffline();
     renderApp('/graph');
     const canvas = await screen.findByTestId('graph-canvas');
-    const inferred = canvas.querySelectorAll('[data-inferred="true"]');
-    const verified = canvas.querySelectorAll('[data-inferred="false"]');
-    expect(inferred.length).toBe(2);
-    expect(verified.length).toBe(2);
+    await waitFor(() => expect(canvas.querySelectorAll('[data-testid="edge-label"]')).toHaveLength(4));
+    expect(canvas.querySelectorAll('[data-testid="edge-label"][data-inferred="true"]')).toHaveLength(2);
+    expect(canvas.querySelectorAll('[data-testid="edge-label"][data-inferred="false"]')).toHaveLength(2);
     expect(screen.getByRole('list', { name: 'Graph legend' })).toHaveTextContent('Inferred relationship');
   });
 
@@ -315,14 +314,18 @@ describe('finding evidence and remediation honesty', () => {
     await user.click(screen.getByRole('button', { name: /Highlight potential path/ }));
     expect(await screen.findByText(/Potential path, not a confirmed exploit/)).toBeInTheDocument();
     // the two hops between consecutive path assets are highlighted; finding attachments are not
-    expect(canvas.querySelectorAll('[data-edge-id="rel-01"], [data-edge-id="rel-02"]')).toHaveLength(2);
+    await waitFor(() =>
+      expect(canvas.querySelectorAll('[data-testid="edge-label"][data-on-path="true"]')).toHaveLength(2),
+    );
+    const onPath = [...canvas.querySelectorAll('[data-testid="edge-label"][data-on-path="true"]')].map((e) => e.getAttribute('data-edge-id'));
+    expect(onPath.sort()).toEqual(['rel-01', 'rel-02']);
   });
 
   it('shows the selected node details when a graph node is chosen', async () => {
     stubOffline();
     const user = userEvent.setup();
     renderApp('/graph');
-    await user.click(await screen.findByRole('button', { name: /Asset: saas-core-api/ }));
+    await user.click(await screen.findByRole('button', { name: /Repository: saas-core-api/ }));
     const inspector = await screen.findByTestId('node-inspector');
     expect(inspector).toHaveTextContent('saas-core-api');
     expect(inspector).toHaveTextContent('Repository');
