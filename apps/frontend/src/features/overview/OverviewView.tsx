@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { useDataSource } from '@/app/providers/DataSourceProvider';
 import { useSourceData } from '@/hooks/useSourceData';
-import { ASSET_TYPE_LABEL, formatPercent, formatUtc, indexById, titleCase } from '@/lib/utils/format';
+import { ASSET_TYPE_LABEL, formatPercent, formatUtc, indexById, parseApiDate, titleCase } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { SEVERITY_ORDER, SEVERITY_STYLE, severityRank } from '@/lib/utils/severity';
 import type { AttackPath, DigitalAsset, SecurityFinding, SeverityLevel } from '@/types';
@@ -190,7 +190,10 @@ function AssetOverview({ assets }: { assets: DigitalAsset[] }) {
 
 function ActivityPanel({ findings }: { findings: SecurityFinding[] }) {
   const events = useMemo(
-    () => [...findings].sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt)).slice(0, 6),
+    () =>
+      [...findings]
+        .sort((a, b) => (parseApiDate(b.discoveredAt)?.getTime() ?? 0) - (parseApiDate(a.discoveredAt)?.getTime() ?? 0))
+        .slice(0, 6),
     [findings],
   );
   return (

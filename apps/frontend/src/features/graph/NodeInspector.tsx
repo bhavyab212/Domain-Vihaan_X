@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/common/States';
 import { Badge } from '@/components/ui/Badge';
 import { ASSET_TYPE_LABEL, formatPercent, humanizeRelationship, titleCase } from '@/lib/utils/format';
 import type { DigitalAsset, GraphEdge, GraphNode, SecurityFinding, SecurityGraph } from '@/types';
+import { assetFacts, findingNodeFacts } from './model';
 
 interface NodeInspectorProps {
   node: GraphNode | null;
@@ -39,6 +40,15 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
   const finding = findings[node.id];
   const labelOf = (id: string) => graph.nodes.find((n) => n.id === id)?.label ?? id;
   const related = graph.edges.filter((e) => e.source === node.id || e.target === node.id);
+  // GET /assets and /findings may be empty (Dev A's backend still returns []), so fall back to the graph node's
+  // own data. Same reader the node cards use, so the card and the inspector can never disagree.
+  const isFinding = node.type === 'FINDING';
+  const facts = isFinding ? undefined : assetFacts(node, asset);
+  const nodeFinding = isFinding ? findingNodeFacts(node) : undefined;
+  const scanner = finding?.scanner ?? nodeFinding?.scanner;
+  const status = finding?.status ?? nodeFinding?.status;
+  const cvss = finding?.cvssScore ?? nodeFinding?.cvssScore;
+  const cve = finding?.cveId ?? nodeFinding?.cveId;
 
   return (
     <div className="space-y-4 p-4" data-testid="node-inspector">
@@ -55,18 +65,19 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
         <Row label="Node ID">
           <code className="font-mono text-2xs text-fg-soft">{node.id}</code>
         </Row>
-        {asset && (
-          <>
-            <Row label="Type">{ASSET_TYPE_LABEL[asset.type]}</Row>
-            <Row label="Environment">{titleCase(asset.environment)}</Row>
-            <Row label="Criticality">{titleCase(asset.criticality)}</Row>
-            <Row label="Owner">{asset.owner}</Row>
-          </>
+        {facts?.assetType && <Row label="Type">{ASSET_TYPE_LABEL[facts.assetType]}</Row>}
+        {facts?.environment && <Row label="Environment">{titleCase(facts.environment)}</Row>}
+        {facts?.criticality && <Row label="Criticality">{titleCase(facts.criticality)}</Row>}
+        {facts?.owner && <Row label="Owner">{facts.owner}</Row>}
+        {facts?.metaLine && (
+          <Row label="Detail">
+            <code className="font-mono text-2xs text-fg-soft">{facts.metaLine}</code>
+          </Row>
         )}
-        {finding && (
+        {isFinding && (
           <>
-            <Row label="Scanner label">{finding.scanner}</Row>
-            {finding.location?.file && (
+            {scanner && <Row label="Scanner label">{scanner}</Row>}
+            {finding?.location?.file && (
               <Row label="Location">
                 <code className="font-mono text-2xs">
                   {finding.location.file}
@@ -74,7 +85,9 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
                 </code>
               </Row>
             )}
-            <Row label="Status">{titleCase(finding.status)}</Row>
+            {status && <Row label="Status">{titleCase(status)}</Row>}
+            {cvss != null && <Row label="CVSS">{cvss.toFixed(1)}</Row>}
+            {cve && <Row label="CVE">{cve}</Row>}
           </>
         )}
       </dl>
@@ -107,9 +120,9 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
         )}
       </div>
 
-      {finding && (
+      {isFinding && (
         <Link
-          to={`/threats?f=${encodeURIComponent(finding.id)}`}
+          to={`/threats?f=${encodeURIComponent(node.id)}`}
           className="inline-block text-xs font-medium text-signal underline underline-offset-2"
         >
           Open in Threats &amp; Findings

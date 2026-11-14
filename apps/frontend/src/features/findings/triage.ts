@@ -6,6 +6,7 @@
  */
 
 import { isSimulatedProvenance, type DigitalAsset, type SecurityFinding, type SeverityLevel } from '@/types';
+import { parseApiDate } from '@/lib/utils/format';
 import { SEVERITY_ORDER } from '@/lib/utils/severity';
 import { categoryIdOf, type FindingCategory } from './categories';
 
@@ -101,7 +102,7 @@ function compare(a: SecurityFinding, b: SecurityFinding, key: SortKey): number {
     case 'scanner':
       return a.scanner.localeCompare(b.scanner, undefined, { sensitivity: 'base' });
     case 'discovered':
-      return Date.parse(a.discoveredAt) - Date.parse(b.discoveredAt) || a.discoveredAt.localeCompare(b.discoveredAt);
+      return (parseApiDate(a.discoveredAt)?.getTime() ?? 0) - (parseApiDate(b.discoveredAt)?.getTime() ?? 0);
   }
 }
 
