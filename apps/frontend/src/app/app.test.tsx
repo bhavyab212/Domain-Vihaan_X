@@ -63,7 +63,8 @@ describe('offline usability and preview provenance', () => {
   it('stays usable in local preview when the backend is offline', async () => {
     stubOffline();
     renderApp('/');
-    expect(await screen.findByText('saas-core-api')).toBeInTheDocument();
+    // the asset appears in both the path preview and the inventory list
+    expect((await screen.findAllByText('saas-core-api')).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Reset demo scenario/ })).toBeEnabled();
     expect(screen.getByRole('link', { name: /Business Security Graph/ })).toBeInTheDocument();
   });
