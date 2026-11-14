@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { posix, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as client from '@/lib/api/client';
 import * as env from '@/lib/config/env';
@@ -69,29 +70,48 @@ describe('API base URL', () => {
   });
 });
 
-describe('every @/lib import resolves to a file on disk', () => {
-  const srcRoot = resolve(__dirname, '..');
+/**
+ * Import-resolution guard against GIT'S INDEX, not the working directory.
+ *
+ * Two real failures reached PR #1 because a Windows working tree is case-insensitive and hides them:
+ *  1. src/lib/ was never committed (root .gitignore `lib/` rule).
+ *  2. components/ui/button.tsx was tracked lowercase while code imported `Button` (git core.ignorecase).
+ * Both build fine locally and break on a clean or case-sensitive (Linux/CI) checkout. Checking the set of
+ * tracked, exact-case paths catches both.
+ */
+describe('every source import resolves to a TRACKED file with exact case', () => {
+  const frontendRoot = resolve(__dirname, '../..');
 
-  function sourceFiles(dir: string): string[] {
-    return readdirSync(dir).flatMap((entry) => {
-      const full = join(dir, entry);
-      if (statSync(full).isDirectory()) return sourceFiles(full);
-      return /\.(ts|tsx)$/.test(entry) ? [full] : [];
-    });
+  function trackedSources(): Set<string> | null {
+    try {
+      const out = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '--', 'src'], {
+        cwd: frontendRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return new Set(out.split(/\r?\n/).filter(Boolean));
+    } catch {
+      return null; // git unavailable (e.g. an exported tarball): skip rather than fake a pass
+    }
   }
 
-  it('has no dangling "@/lib/..." imports', () => {
-    const missing: string[] = [];
-    for (const file of sourceFiles(srcRoot)) {
-      const text = readFileSync(file, 'utf8');
-      for (const match of text.matchAll(/from\s+'@\/(lib\/[^']+)'/g)) {
-        const target = join(srcRoot, match[1]);
-        const candidates = [`${target}.ts`, `${target}.tsx`, join(target, 'index.ts')];
-        if (!candidates.some((c) => { try { return statSync(c).isFile(); } catch { return false; } })) {
-          missing.push(`${file.replace(srcRoot, 'src')} -> @/${match[1]}`);
-        }
+  it('has no import that is untracked, ignored, or differs only in letter case', (ctx) => {
+    const files = trackedSources();
+    if (!files) return ctx.skip();
+    const resolves = (base: string) =>
+      ['.ts', '.tsx', '/index.ts', '/index.tsx'].some((ext) => files.has(base + ext)) || files.has(base);
+
+    const problems: string[] = [];
+    for (const file of files) {
+      if (!/\.(ts|tsx)$/.test(file)) continue;
+      const text = readFileSync(resolve(frontendRoot, file), 'utf8');
+      for (const match of text.matchAll(/from\s+'(@\/[^']+|\.{1,2}\/[^']+)'/g)) {
+        const spec = match[1];
+        if (/\.(css|svg|png)$/.test(spec)) continue;
+        const base = posix.normalize(spec.startsWith('@/') ? `src/${spec.slice(2)}` : posix.join(posix.dirname(file), spec));
+        if (!resolves(base)) problems.push(`${file} -> ${spec}`);
       }
     }
-    expect(missing).toEqual([]);
+    expect(problems).toEqual([]);
   });
 });
