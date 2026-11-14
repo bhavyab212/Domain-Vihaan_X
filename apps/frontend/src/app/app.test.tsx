@@ -348,9 +348,14 @@ describe('finding evidence and remediation honesty', () => {
 
   it('labels the attack path as inferred and not a confirmed exploit', async () => {
     stubOffline();
+    const user = userEvent.setup();
     renderApp('/paths');
+    // the statement is on the list itself, before anything is opened
     expect(await screen.findByText(/Inferred potential path, not a confirmed exploit/)).toBeInTheDocument();
-    expect(screen.getAllByTestId('path-step')).toHaveLength(3);
+    await user.click(await screen.findByTestId('path-row'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Inferred potential path, not a confirmed exploit/)).toBeInTheDocument();
+    expect(within(dialog).getAllByTestId('path-step')).toHaveLength(3);
   });
 
   it('distinguishes inferred from verified relationships in the graph', async () => {
