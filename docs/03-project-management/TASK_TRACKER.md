@@ -26,7 +26,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TSK-001** | Documentation & Governance Revision System | **P0** | Shared | **DONE** | 90 min | None | FR-001–FR-019 |
 | **TSK-002** | Synthetic SaaS Fixtures & One-Click Reset API | **P0** | Dev A | **READY** | 45 min | TSK-001 | FR-017, FR-018 |
-| **TSK-003** | FastAPI App Shell & SQLite WAL Mode Database | **P0** | Dev A | **READY** | 45 min | TSK-001 | FR-001, NFR-006 |
+| **TSK-003** | FastAPI App Shell & SQLite WAL Mode Database | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-001 | FR-001, NFR-006 |
 | **TSK-004** | React 18 + Vite Shell & Five Primary UIs Layout | **P0** | Dev B | **READY** | 45 min | TSK-001 | FR-013, NFR-005 |
 | **TSK-005** | Finding Normalization Engine (`FindingSchema`) | **P0** | Dev A | **BACKLOG** | 60 min | TSK-003 | FR-004, NFR-008 |
 | **TSK-006** | NetworkX Business Security Graph Model | **P0** | Dev A | **BACKLOG** | 60 min | TSK-005 | FR-005, FR-006 |
@@ -65,6 +65,19 @@
 - **Acceptance Criteria:**
   - Calling `POST /api/demo/reset` returns HTTP `200 OK` and re-seeds clean state.
   - Zero real credentials stored or exposed.
+
+---
+
+### TSK-003: FastAPI App Shell & SQLite WAL Mode Database
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (App Shell & Health API: `[IMPLEMENTED]` & `[TESTED]`; Database Layer: `[BLOCKED]` pending ADR-005 formal sign-off)
+- **Description:** Implement clean FastAPI application factory, versioned API router (`/api/v1`), structured logging, centralized exception handlers, safe configuration defaults, and `GET /api/v1/health` with honest scanner telemetry.
+- **Acceptance Criteria:**
+  - `GET /api/v1/health` returns HTTP 200 with `status: "healthy"` and `mode: "DEMO_MODE"`.
+  - Scanners report honest telemetry (`ready`, `unverified`, `optional-unconfigured`).
+  - Pytest test suite passes with 100% verified assertions.
+  - Database schema implementation cleanly abstracted until ADR-005 approval.
 
 ---
 
