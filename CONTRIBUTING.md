@@ -24,26 +24,26 @@ The repository is organized as a modular monorepo with strict division of owners
 
 ## 2. Git Branching Strategy
 
-To enable simultaneous parallel development without blocking or merge collisions, the team operates on a structured 4-branch model:
+To enable simultaneous parallel development without blocking or merge collisions, the team operates on a task-branch model:
 
 ```
-[ main ]  ◄───────────────────────────────────────┐
-   │                                              │ (Milestone Release PR)
-   ▼                                              │
-[ integration ]  ◄───────────────┬────────────────┘
+[ main ]  ◄───────────────────────────────────────────────────────┐
+   │                                                              │ (Milestone Release PR)
+   ▼                                                              │
+[ integration ]  ◄───────────────┬────────────────────────────────┘
    │                             │
-   ├──► [ feature/backend-core ] ┘ (Dev A: Tested Backend PR)
-   │
-   └──► [ feature/frontend-ui ]  ─ (Dev B: Tested Frontend PR)
+   ├──► [ backend/<task-id> ]  ──┤ (Dev A: Task-specific PR, e.g. backend/TSK-003-foundation)
+   │                             │
+   └──► [ frontend/<task-id> ] ──┘ (Dev B: Task-specific PR, e.g. frontend/TSK-004-ui)
 ```
 
 ### Branch Definitions
 1. **`main`:** The protected production branch. Always contains stable, presentation-ready, deployable code. Never commit directly to `main`.
-2. **`integration`:** The shared integration trunk. Feature branches branch from and merge into `integration`. Working milestone verifications occur here before promotion to `main`.
-3. **`feature/backend-core`:** Developer A's primary working branch for FastAPI, database, graph algorithms, and scanner orchestration.
-4. **`feature/frontend-ui`:** Developer B's primary working branch for React Flow components, Tailwind styling, and dashboard interfaces.
+2. **`integration`:** The shared integration trunk. All feature and task branches branch from and merge into `integration`. Working milestone verifications occur here before promotion to `main`.
+3. **`backend/<task-id>`:** Developer A's short-lived task branches for backend work (e.g. `backend/TSK-003-foundation`).
+4. **`frontend/<task-id>`:** Developer B's short-lived task branches for frontend work (e.g. `frontend/TSK-004-ui`).
 
-*Note: As mandated by [`AGENTS.md`](AGENTS.md), no git branches may be created or pushed without explicit developer instruction.*
+No direct feature commits are permitted on `main` or `integration`. All changes must arrive via pull requests targeting `integration`. Once integration tests pass and milestone criteria are met, `integration` is promoted to `main`.
 
 ---
 

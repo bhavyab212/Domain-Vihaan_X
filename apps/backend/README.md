@@ -23,7 +23,7 @@
   - Graceful degradation when scanners timeout or fail.
 - **Safety Boundaries:**
   - Enforcement of target allowlist in `app/core/safety.py`.
-  - Zero arbitrary shell injection; strict parameterized execution.
+  - Zero arbitrary shell injection; strict parameterized execution (`shell=False`).
 
 ---
 
@@ -35,29 +35,34 @@ apps/backend/
 ├── pyproject.toml                      # Modern Python packaging and dependency config
 ├── requirements.txt                    # Pinned core dependencies
 ├── .env.example                        # Backend environment variable blueprint
-└── app/
-    ├── main.py                         # FastAPI bootstrap, middleware, lifespan
-    ├── core/                           # Configuration, structured logging, safety boundaries
-    │   ├── config.py
-    │   ├── logging.py
-    │   └── safety.py                   # Target allowlist & input sanitization
-    ├── api/
-    │   └── v1/
-    │       ├── router.py               # Aggregated V1 API router
-    │       └── endpoints/              # Endpoint modules (health, assets, assessments, etc.)
-    ├── schemas/                        # Pydantic V2 schemas matching shared contracts
-    ├── models/                         # Persistent entities (SQLAlchemy/SQLite)
-    ├── database/                       # Database engine and session lifecycle
-    ├── repositories/                   # Data access layer
-    ├── services/                       # Application business logic
-    ├── integrations/
-    │   └── scanners/                   # Scanner adapters (base, gitleaks, checkov, etc.)
-    ├── orchestration/                  # Multi-scanner execution runner and progress tracker
-    ├── intelligence/                   # Normalization, Graph builder, Risk engine, Attack-path builder
-    ├── ai/                             # LLM security analyst and deterministic rule fallback
-    ├── remediation/                    # Patch generation, script generation, and dry-run verifier
-    ├── demo/                           # Synthetic demo scenario loader and reset logic
-    └── utils/                          # Common helpers
+├── app/
+│   ├── main.py                         # FastAPI bootstrap, CORS, exception handlers, lifespan
+│   ├── core/                           # Configuration, structured logging, safety boundaries, exceptions
+│   │   ├── config.py                   # Pydantic Settings & environment validation
+│   │   ├── logging.py                  # Structured console logger
+│   │   ├── exceptions.py               # Domain exceptions & Starlette/HTTP exception handlers
+│   │   └── safety.py                   # Target allowlist & input sanitization
+│   ├── api/
+│   │   └── v1/
+│   │       ├── router.py               # Aggregated V1 API router
+│   │       └── endpoints/              # Endpoint modules (health, assets, assessments, etc.)
+│   │           └── health.py           # GET /api/v1/health (Honest scanner telemetry & mode)
+│   ├── schemas/                        # Pydantic V2 schemas matching shared contracts
+│   ├── models/                         # Persistent entities (SQLAlchemy/SQLite)
+│   ├── database/                       # Database engine and session lifecycle
+│   ├── repositories/                   # Data access layer
+│   ├── services/                       # Application business logic
+│   ├── integrations/
+│   │   └── scanners/                   # Scanner adapters (base, gitleaks, checkov, etc.)
+│   ├── orchestration/                  # Multi-scanner execution runner and progress tracker
+│   ├── intelligence/                   # Normalization, Graph builder, Risk engine, Attack-path builder
+│   ├── ai/                             # LLM security analyst and deterministic rule fallback
+│   ├── remediation/                    # Patch generation, script generation, and dry-run verifier
+│   ├── demo/                           # Synthetic demo scenario loader and reset logic
+│   └── utils/                          # Common helpers
+└── tests/                              # Pytest test suite
+    ├── conftest.py                     # TestClient and session fixtures
+    └── test_health.py                  # Health API, CORS, schema & exception tests
 ```
 
 ---
@@ -82,6 +87,8 @@ apps/backend/
 4. Access interactive API documentation at:
    - OpenAPI UI: `http://localhost:8000/docs`
    - ReDoc: `http://localhost:8000/redoc`
+   - OpenAPI JSON Schema: `http://localhost:8000/openapi.json`
+   - Canonical Health Check: `http://localhost:8000/api/v1/health`
 
 ---
 
@@ -89,8 +96,7 @@ apps/backend/
 
 Run tests using pytest:
 ```bash
-pytest tests/unit
-pytest tests/integration
+python -m pytest apps/backend/tests -v
 ```
 
-All test assertions must operate on actual fixture returns or deterministic outputs. Fabricating test passes is strictly prohibited by [`AGENTS.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/AGENTS.md).
+All test assertions operate on actual fixture returns or deterministic outputs. Fabricating test passes is strictly prohibited by [`AGENTS.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/AGENTS.md).
