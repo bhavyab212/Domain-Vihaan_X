@@ -77,7 +77,7 @@ export const PREVIEW_FINDINGS: SecurityFinding[] = [
     assetId: 'asset-repo-01',
     cveId: null,
     cvssScore: 9.8,
-    provenance: 'SIMULATED',
+    provenance: 'SIMULATED_DEMO',
     location: { file: 'config/staging.env', line: 14 },
     remediationGuidance:
       'Revoke compromised IAM key immediately and inject secrets via environment vault.',
@@ -94,7 +94,7 @@ export const PREVIEW_FINDINGS: SecurityFinding[] = [
     assetId: 'asset-cloud-01',
     cveId: null,
     cvssScore: 8.1,
-    provenance: 'SIMULATED',
+    provenance: 'SIMULATED_DEMO',
     location: { file: 'iac/iam_staging.tf', line: 28 },
     remediationGuidance: 'Restrict IAM policy to least-privilege actions on scoped resource ARNs.',
     status: 'OPEN',

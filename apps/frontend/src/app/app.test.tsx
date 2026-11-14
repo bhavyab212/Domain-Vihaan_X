@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { HEALTHY, json, renderApp, stubFetch, stubOffline } from '@/test/utils';
+import { HEALTHY, json, renderApp, resetBody, stubFetch, stubOffline } from '@/test/utils';
 
 const ROUTES: [string, string][] = [
   ['/', 'Security Command Center'],
@@ -77,13 +77,13 @@ describe('offline usability and preview provenance', () => {
     expect(banner).toHaveTextContent(/not live monitoring/i);
   });
 
-  it('marks every finding row as Simulated in preview', async () => {
+  it('marks every finding row as Simulated demo (SIMULATED_DEMO) in preview', async () => {
     stubOffline();
     renderApp('/threats');
     const rows = await screen.findAllByTestId('finding-row');
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(within(row).getByText('Simulated')).toBeInTheDocument();
+      expect(within(row).getByText('Simulated demo')).toBeInTheDocument();
       expect(within(row).queryByText('Observed')).not.toBeInTheDocument();
     }
   });
@@ -206,21 +206,43 @@ describe('demo reset never shows false success', () => {
     expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'error');
   });
 
-  it('shows success only after the backend returns a valid 2xx reset response', async () => {
-    const run = {
-      id: 'run-demo-reset',
-      mode: 'DEMO_MODE',
-      status: 'completed',
-      currentStepMessage: 'Demo scenario reset to canonical baseline.',
-    };
-    stubFetch((_url, init) => (init?.method === 'POST' ? json(run) : json(HEALTHY)));
+  it('shows success only after the backend returns a valid DemoResetResponse', async () => {
+    stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody()) : json(HEALTHY)));
     const user = userEvent.setup();
     renderApp('/');
     expect(screen.queryByTestId('reset-feedback')).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
     const feedback = await screen.findByTestId('reset-feedback');
     expect(feedback).toHaveAttribute('data-phase', 'success');
-    expect(feedback).toHaveTextContent('Backend confirmed the reset');
+    expect(feedback).toHaveTextContent('Backend confirmed the reset: 3 assets, 2 findings, 2 relationships, 1 attack path');
+    // never echoes host paths from the response
+    expect(feedback).not.toHaveTextContent('runtime');
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['RESET_FAILED', { status: 'RESET_FAILED' }],
+    ['wrong mode', { mode: 'LIVE_ASSESSMENT_MODE' }],
+    ['missing counts', { assetsCount: undefined, findingsCount: undefined }],
+    ['non-integer count', { attackPathsCount: 0.5 }],
+    ['invalid resetAt', { resetAt: 'not-a-date' }],
+  ])('never shows green success for a 2xx reset with %s', async (_name, patch) => {
+    stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody(patch)) : json(HEALTHY)));
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    const feedback = await screen.findByTestId('reset-feedback');
+    expect(feedback).toHaveAttribute('data-phase', 'error');
+    expect(feedback).toHaveTextContent(/nothing was reset/i);
+    expect(feedback).not.toHaveTextContent(/confirmed/i);
+  });
+
+  it('never shows green success for the legacy AssessmentRun-shaped body', async () => {
+    const legacy = { id: 'run-1', mode: 'DEMO_MODE', status: 'completed', currentStepMessage: 'ok' };
+    stubFetch((_url, init) => (init?.method === 'POST' ? json(legacy) : json(HEALTHY)));
+    const user = userEvent.setup();
+    renderApp('/');
+    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'error');
   });
 
   it('disables the button and shows progress while the reset is in flight', async () => {
@@ -233,7 +255,7 @@ describe('demo reset never shows false success', () => {
     await waitFor(() => expect(button).toBeDisabled());
     expect(button).toHaveTextContent('Resetting');
     expect(screen.queryByTestId('reset-feedback')).not.toBeInTheDocument();
-    release(json({ id: 'x', mode: 'DEMO_MODE', status: 'completed', currentStepMessage: 'ok' }));
+    release(json(resetBody()));
     await waitFor(() => expect(button).toBeEnabled());
   });
 });
