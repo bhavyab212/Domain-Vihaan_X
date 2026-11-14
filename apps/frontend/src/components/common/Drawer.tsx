@@ -1,5 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useDialogBehavior } from '@/hooks/useDialogBehavior';
 import { cn } from '@/lib/utils/cn';
 
 interface DrawerProps {
@@ -12,26 +13,13 @@ interface DrawerProps {
 }
 
 /**
- * Right-hand detail drawer. Accessible dialog: Escape closes, focus moves in and is restored on close.
- * Non-modal backdrop click also closes. No bottom dock; it always slides from the right edge.
+ * Detail drawer. Accessible modal dialog: focus moves in, Tab is trapped, Escape closes, and focus is restored to the
+ * opener on close. It slides from the right edge on wide screens and fills the viewport below `sm` (a 390px phone gets
+ * the full width rather than a cramped panel). No bottom dock.
  */
 export function Drawer({ open, onClose, title, subtitle, children, className }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    returnFocus.current = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      returnFocus.current?.focus?.();
-    };
-  }, [open, onClose]);
+  useDialogBehavior(open, panelRef, onClose);
 
   if (!open) return null;
 
@@ -51,7 +39,7 @@ export function Drawer({ open, onClose, title, subtitle, children, className }: 
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'relative flex h-full w-full max-w-xl animate-slide-in flex-col border-l border-line-strong bg-ink-900 shadow-drawer',
+          'relative flex h-full w-full max-w-xl animate-slide-in flex-col border-l border-line-strong bg-ink-900 shadow-drawer outline-none',
           className,
         )}
       >
@@ -64,6 +52,7 @@ export function Drawer({ open, onClose, title, subtitle, children, className }: 
             type="button"
             onClick={onClose}
             aria-label="Close details"
+            data-autofocus
             className="-mr-1 rounded-md p-1.5 text-fg-muted hover:bg-ink-800 hover:text-fg"
           >
             <X className="h-4 w-4" aria-hidden />
