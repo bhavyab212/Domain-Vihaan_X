@@ -1,15 +1,15 @@
-import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { AppProviders } from './providers';
-import { Router } from './router';
+import { AppRoutes } from './router';
+import { ROUTER_FUTURE } from './routerFuture';
 
-/**
- * Root Application Container
- * Managed exclusively by Developer B
- */
+/** Root application container (browser router). Tests render <AppProviders><MemoryRouter><AppRoutes/> instead. */
 export function App() {
   return (
     <AppProviders>
-      <Router />
+      <BrowserRouter future={ROUTER_FUTURE}>
+        <AppRoutes />
+      </BrowserRouter>
     </AppProviders>
   );
 }

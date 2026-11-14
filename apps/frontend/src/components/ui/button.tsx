@@ -1,37 +1,39 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md';
 }
 
-export function Button({
-  className,
-  variant = 'primary',
-  size = 'md',
-  children,
-  ...props
-}: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500 rounded-md disabled:opacity-50 disabled:pointer-events-none';
+const VARIANTS: Record<NonNullable<ButtonProps['variant']>, string> = {
+  primary: 'border-signal/50 bg-signal/15 text-signal hover:bg-signal/25',
+  secondary: 'border-line-strong bg-ink-800 text-fg hover:bg-ink-700',
+  ghost: 'border-transparent bg-transparent text-fg-muted hover:bg-ink-800 hover:text-fg',
+  danger: 'border-sev-critical/50 bg-sev-critical/10 text-sev-critical hover:bg-sev-critical/20',
+};
 
-  const variants = {
-    primary: 'bg-rose-600 text-white hover:bg-rose-500 shadow-sm',
-    secondary: 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700',
-    danger: 'bg-red-600 text-white hover:bg-red-500 shadow-sm',
-    outline: 'border border-slate-700 text-slate-300 hover:bg-slate-900',
-    ghost: 'text-slate-400 hover:text-slate-100 hover:bg-slate-900',
-  };
+const SIZES: Record<NonNullable<ButtonProps['size']>, string> = {
+  sm: 'h-8 gap-1.5 px-2.5 text-xs',
+  md: 'h-9 gap-2 px-3.5 text-sm',
+};
 
-  const sizes = {
-    sm: 'text-xs px-2.5 py-1.5',
-    md: 'text-sm px-4 py-2',
-    lg: 'text-base px-6 py-3',
-  };
-
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant = 'secondary', size = 'md', type = 'button', ...props },
+  ref,
+) {
   return (
-    <button className={cn(baseStyles, variants[variant], sizes[size], className)} {...props}>
-      {children}
-    </button>
+    <button
+      ref={ref}
+      type={type}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-md border font-medium transition-colors',
+        'disabled:pointer-events-none disabled:opacity-45',
+        VARIANTS[variant],
+        SIZES[size],
+        className,
+      )}
+      {...props}
+    />
   );
-}
+});
