@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 
-from app.models.entities import AssetModel, FindingModel, RelationshipModel, AttackPathModel
+from app.models.entities import AssetModel, FindingModel, RelationshipModel, AttackPathModel, RemediationModel
 from app.database.session import init_db, verify_sqlite_wal
 from app.schemas.demo import DemoResetResponse
 from app.core.exceptions import DomainVihaanXException, ResourceNotFoundError
@@ -249,6 +249,7 @@ class DemoScenarioProvider:
 
         try:
             # 1. Scoped removal of existing demo records (preserves live assessment data)
+            db.query(RemediationModel).filter(RemediationModel.is_demo.is_(True)).delete(synchronize_session=False)
             db.query(FindingModel).filter(FindingModel.is_demo.is_(True)).delete(synchronize_session=False)
             db.query(RelationshipModel).filter(RelationshipModel.is_demo.is_(True)).delete(synchronize_session=False)
             db.query(AttackPathModel).filter(AttackPathModel.is_demo.is_(True)).delete(synchronize_session=False)

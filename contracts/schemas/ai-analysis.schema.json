@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domain-vihaan-x.local/schemas/ai-analysis.schema.json",
+  "title": "AIAnalysisResponse",
+  "type": "object",
+  "required": [
+    "pathId",
+    "summary",
+    "narrative",
+    "chokePointAssetId",
+    "chokePointReason",
+    "evidenceReferences",
+    "generatedAt",
+    "grounded"
+  ],
+  "properties": {
+    "pathId": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "narrative": {
+      "type": "string"
+    },
+    "chokePointAssetId": {
+      "type": "string"
+    },
+    "chokePointReason": {
+      "type": "string"
+    },
+    "blastRadiusEstimate": {
+      "type": "string"
+    },
+    "businessImpactNarrative": {
+      "type": "string"
+    },
+    "evidenceReferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["findingId", "scanner", "toolRawOutput", "confidence"],
+        "properties": {
+          "findingId": { "type": "string" },
+          "scanner": { "type": "string" },
+          "toolRawOutput": { "type": "string" },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "grounded": {
+      "type": "boolean"
+    },
+    "fallbackUsed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

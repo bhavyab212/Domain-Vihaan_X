@@ -86,3 +86,31 @@ class AttackPathModel(Base):
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class RemediationModel(Base):
+    __tablename__ = "remediations"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    finding_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attack_path_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    target_file: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    patch_diff: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rollback_diff: Mapped[str | None] = mapped_column(Text, nullable=True)
+    shell_script: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requires_approval: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="PENDING", nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(32), default="UNVERIFIED", nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approval_comments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verification_details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+

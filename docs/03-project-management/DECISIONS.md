@@ -327,3 +327,35 @@ Enforce explicit provenance tagging in all database schemas, API responses, and 
 ### Consequences
 - **Positive:** Complete intellectual honesty; evaluators can verify exact provenance; complies strictly with cybersecurity governance.
 - **Negative:** Requires UI badges and state management across all five interfaces.
+
+---
+
+## ADR-014: Grounded AI Analysis, Human-Approved Patch Execution, and Reassessment Verification Loop
+
+- **Date:** 2026-11-15
+- **Status:** `ACCEPTED` (Accepted under delegated architectural authority)
+- **Decision Owner:** Developer A (Backend, Security Architecture & Integration Lead)
+- **Related Documents:** [`docs/02-architecture/TECHNICAL_IMPLEMENTATION.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/docs/02-architecture/TECHNICAL_IMPLEMENTATION.md), [`docs/04-quality-and-security/SECURITY_MODEL.md`](file:///d:/REAL_projects/Domain-Vihaan%20X/docs/04-quality-and-security/SECURITY_MODEL.md), [`contracts/openapi/openapi.yaml`](file:///d:/REAL_projects/Domain-Vihaan%20X/contracts/openapi/openapi.yaml)
+
+### Context
+Autonomous security remediation poses severe operational risks: unvetted infrastructure changes can cause service outages, permission lockouts, or syntax corruption. Furthermore, relying on ungrounded probabilistic LLMs to propose remediation code risks hallucinated commands, syntax errors, and unverifiable claims of exploit mitigation.
+
+### Options Considered
+1. *Unsupervised Autonomous Remediation:* AI agent directly applies patches and triggers CI/CD without human intervention (Rejected: Violates core security principle of human supervision; unacceptable blast radius).
+2. *Purely Textual Remediation Guidance:* Displaying static markdown advice without executable patches (Rejected: Leaves heavy cognitive and manual burden on developers; slow time-to-remediate).
+3. *Supervised Human-in-the-Loop Remediation with Grounded Fallbacks & Reassessment Loop (Selected):*
+   - Generate standard unified diffs (`--- a/file +++ b/file`) with context matching.
+   - Enforce mandatory human approval gate (`status="PENDING"` -> human approval -> `status="APPLIED"`).
+   - Atomic file modification with `.bak` backup and automatic rollback on error.
+   - Deterministic rule-based analysis fallback (< 50ms) to ensure 100% demo uptime and zero hallucination.
+   - Post-patch verification loop to confirm vulnerability eradication, mark findings `RESOLVED`, and mark attack paths `MITIGATED`.
+
+### Decision
+1. **Grounded AI Analysis (TSK-015):** Provide `POST /api/v1/ai/analyze/{path_id}` backed by `AISecurityAnalyst`. When external LLM is offline or times out (> 5s), fallback seamlessly to `RuleBasedFallbackEngine`, producing structured kill-chain narratives, evidence citations, and choke-point mitigations in < 50ms with `grounded=True`.
+2. **Standard Unified Diffs (TSK-018):** Use Python `difflib` in `UnifiedDiffEngine` to produce canonical unified diffs and rollback diffs consumable by standard diff visualizers.
+3. **Atomic Human Gate (TSK-019):** Gate execution behind `POST /api/v1/remediations/{id}/approve`. Create an atomic backup (`.bak`) before touching any file on disk. If patching fails, automatically restore the original file and log a security audit event.
+4. **Automated Verification Loop (TSK-020):** Implement `POST /api/v1/remediations/{id}/verify`. Parse target files to confirm the vulnerability has been removed, update the finding status to `RESOLVED`, and mark the associated attack path as `MITIGATED`.
+
+### Consequences
+- **Positive:** Zero risk of unintended automated outages; complete transparency for developer review; robust offline demo resilience; immediate closed-loop verification feedback.
+- **Negative:** Requires maintaining atomic rollback file management and diff application logic within the backend.

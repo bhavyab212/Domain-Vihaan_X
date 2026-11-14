@@ -175,12 +175,42 @@ paths:
                 items:
                   $ref: '#/components/schemas/AttackPath'
 
+  /ai/analyze/{path_id}:
+    post:
+      summary: Grounded AI Analysis with Deterministic Fallback for Attack Path
+      operationId: analyzeAttackPath
+      tags:
+        - AI
+      parameters:
+        - name: path_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of attack path to analyze
+      responses:
+        '200':
+          description: Grounded multi-hop attack path narrative with evidence citations and choke-point recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIAnalysisResponse'
+        '404':
+          description: Attack path not found
+
   /remediations:
     get:
       summary: List Proposed Remediations
       operationId: listRemediations
       tags:
         - Remediation
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, APPLIED, FAILED, REJECTED]
       responses:
         '200':
           description: List of remediation actions
@@ -190,6 +220,28 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RemediationAction'
+
+  /remediations/{remediation_id}:
+    get:
+      summary: Get Specific Remediation Proposal
+      operationId: getRemediation
+      tags:
+        - Remediation
+      parameters:
+        - name: remediation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remediation proposal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationAction'
+        '404':
+          description: Remediation proposal not found
 
   /remediations/{remediation_id}/approve:
     post:
@@ -211,11 +263,69 @@ paths:
               $ref: '#/components/schemas/RemediationApproveRequest'
       responses:
         '200':
-          description: Remediation approved and applied
+          description: Remediation approved and applied atomically
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemediationAction'
+        '400':
+          description: Remediation cannot be approved in its current state
+        '404':
+          description: Remediation not found
+
+  /remediations/{remediation_id}/reject:
+    post:
+      summary: Reject Proposed Remediation Action
+      operationId: rejectRemediation
+      tags:
+        - Remediation
+      parameters:
+        - name: remediation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediationRejectRequest'
+      responses:
+        '200':
+          description: Remediation marked as rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationAction'
+        '400':
+          description: Remediation cannot be rejected (e.g. already applied)
+        '404':
+          description: Remediation not found
+
+  /remediations/{remediation_id}/verify:
+    post:
+      summary: Automated Reassessment Verification Loop
+      operationId: verifyRemediation
+      tags:
+        - Remediation
+      parameters:
+        - name: remediation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Remediation verified, finding resolved, and attack path mitigated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationAction'
+        '400':
+          description: Remediation must be APPLIED before verification
+        '404':
+          description: Remediation not found
 
   /demo/reset:
     post:
@@ -471,6 +581,69 @@ components:
           type: string
         comments:
           type: string
+
+    RemediationRejectRequest:
+      type: object
+      required: [rejectedBy]
+      properties:
+        rejectedBy:
+          type: string
+          default: security-admin@company.local
+        reason:
+          type: string
+
+    EvidenceReference:
+      type: object
+      required: [findingId, scanner, toolRawOutput, confidence]
+      properties:
+        findingId:
+          type: string
+        scanner:
+          type: string
+        toolRawOutput:
+          type: string
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+
+    AIAnalysisResponse:
+      type: object
+      required:
+        - pathId
+        - summary
+        - narrative
+        - chokePointAssetId
+        - chokePointReason
+        - evidenceReferences
+        - generatedAt
+        - grounded
+      properties:
+        pathId:
+          type: string
+        summary:
+          type: string
+        narrative:
+          type: string
+        chokePointAssetId:
+          type: string
+        chokePointReason:
+          type: string
+        blastRadiusEstimate:
+          type: string
+        businessImpactNarrative:
+          type: string
+        evidenceReferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceReference'
+        generatedAt:
+          type: string
+          format: date-time
+        grounded:
+          type: boolean
+        fallbackUsed:
+          type: boolean
 
     AssessmentTriggerRequest:
       type: object

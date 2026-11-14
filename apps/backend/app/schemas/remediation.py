@@ -25,3 +25,8 @@ class RemediationResponse(BaseModel):
 class RemediationApproveRequest(BaseModel):
     approvedBy: str
     comments: Optional[str] = None
+
+
+class RemediationRejectRequest(BaseModel):
+    rejectedBy: str = "security-admin@company.local"
+    reason: Optional[str] = None

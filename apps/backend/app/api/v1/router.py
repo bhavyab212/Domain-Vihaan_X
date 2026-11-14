@@ -10,7 +10,8 @@ from app.api.v1.endpoints import (
     graph,
     attack_paths,
     remediations,
-    demo
+    demo,
+    ai
 )
 
 api_v1_router = APIRouter()
@@ -21,5 +22,6 @@ api_v1_router.include_router(assessments.router, prefix="/assessments", tags=["A
 api_v1_router.include_router(findings.router, prefix="/findings", tags=["Findings"])
 api_v1_router.include_router(graph.router, prefix="/graph", tags=["Graph"])
 api_v1_router.include_router(attack_paths.router, prefix="/attack-paths", tags=["AttackPaths"])
+api_v1_router.include_router(ai.router, prefix="/ai", tags=["AI"])
 api_v1_router.include_router(remediations.router, prefix="/remediations", tags=["Remediations"])
 api_v1_router.include_router(demo.router, prefix="/demo", tags=["Demo"])

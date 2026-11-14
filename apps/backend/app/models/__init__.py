@@ -2,7 +2,7 @@
 """SQLAlchemy database models."""
 
 from app.models.base import Base, TimestampMixin
-from app.models.entities import AssetModel, FindingModel, RelationshipModel, AttackPathModel
+from app.models.entities import AssetModel, FindingModel, RelationshipModel, AttackPathModel, RemediationModel
 
 __all__ = [
     "Base",
@@ -11,4 +11,5 @@ __all__ = [
     "FindingModel",
     "RelationshipModel",
     "AttackPathModel",
+    "RemediationModel",
 ]

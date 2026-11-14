@@ -177,8 +177,51 @@
 ### TSK-015: Grounded AI Analysis & Embedded Rule Fallback Engine
 - **Owner:** Developer A
 - **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-005 Accepted)
 - **Description:** Implement `app/ai/analyzer.py` and `app/ai/rule_fallback.py`. If external LLM times out (> 5s) or fails, the embedded rule engine generates an instant, structured explanation of the kill chain:
   > *"Committed staging AWS secret in repo allows assuming StagingDeployer role. Wildcard permissions grant exfiltration access to customer database backup bucket."*
 - **Acceptance Criteria:**
-  - Endpoint `POST /api/ai/analyze/{id}` responds in < 50ms in offline mode with `offline_mode=true`.
+  - Endpoint `POST /api/v1/ai/analyze/{path_id}` responds in < 50ms in offline mode with `grounded=True` and `fallback_used=True`.
   - Zero hallucinated CVEs or external IPs.
+  - Generates concrete `evidence_references` linking findings, scanner outputs, and confidence scores.
+  - Identifies single choke-point asset recommendation to break the multi-hop attack path.
+
+---
+
+### TSK-018: Remediation Proposal & Unified Diff Generator
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-005 Accepted)
+- **Description:** Implement `app/remediation/differ.py` and `app/remediation/generator.py` to produce standard unified diffs (`--- a/file +++ b/file @@ ... @@`) for vulnerable IaC and configuration assets.
+- **Acceptance Criteria:**
+  - Standard unified diff format consumable by frontend diff visualizers and standard `patch` tools.
+  - Includes both forward remediation patch and reversible rollback patch.
+  - `GET /api/v1/remediations` and `GET /api/v1/remediations/{id}` endpoints.
+  - Proposals persisted with `status="PENDING"` requiring human authorization.
+
+---
+
+### TSK-019: Human Approval Gate & Atomic Patch Executor
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-005 Accepted)
+- **Description:** Implement `app/remediation/executor.py` enforcing mandatory human approval before applying any state-modifying patch. Executes atomic patch writes with `.bak` safety backups and automatic rollback on failure.
+- **Acceptance Criteria:**
+  - Unapproved patch applications rejected with `SecurityBoundaryError` / `400 Bad Request`.
+  - Atomically creates backup file before modifying target file.
+  - Automatically restores `.bak` if patching fails.
+  - Endpoints `POST /api/v1/remediations/{id}/approve` and `POST /api/v1/remediations/{id}/reject`.
+
+---
+
+### TSK-020: Automated Reassessment Verification Loop
+- **Owner:** Developer A
+- **Priority:** `P0`
+- **Status:** `IN_REVIEW` (`[IMPLEMENTED]` & `[TESTED]` — ADR-005 Accepted)
+- **Description:** Implement `app/remediation/verifier.py` to automatically verify applied patches against targeted files, updating the finding status to `RESOLVED` and mitigating associated multi-hop attack paths.
+- **Acceptance Criteria:**
+  - Endpoint `POST /api/v1/remediations/{id}/verify`.
+  - Verifies target file no longer contains vulnerable pattern.
+  - Updates remediation `verification_status="PASSED"`.
+  - Updates associated `FindingModel.status="RESOLVED"`.
+  - Updates associated `AttackPathModel.status="MITIGATED"`.

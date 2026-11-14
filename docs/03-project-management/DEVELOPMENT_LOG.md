@@ -430,3 +430,88 @@ Implement deterministic synthetic SaaS scenario restoration, isolated runtime wo
 - Commit and push `backend/TSK-009-011-014-security-operations`.
 - Open PR targeting `backend/TSK-002-005-006-008-integration`.
 - Generate autonomous prompt for Dev A covering TSK-015, TSK-018, TSK-019, and TSK-020.
+
+
+---
+
+## 2026-11-15 — Session 5: Grounded AI Analysis & Human-in-the-Loop Remediation Engine (TSK-015, TSK-018, TSK-019, TSK-020)
+
+### Objective
+1. Implement TSK-015: Grounded AI Analysis Engine (`app/ai/analyzer.py`, `app/ai/rule_fallback.py`, `POST /api/v1/ai/analyze/{path_id}`). Provide deterministic rule-based analysis in < 50ms with zero hallucinations, concrete evidence citations, and choke-point mitigations.
+2. Implement TSK-018: Remediation Proposal & Unified Diff Generator (`app/remediation/differ.py`, `app/remediation/generator.py`, `GET /api/v1/remediations`, `GET /api/v1/remediations/{id}`).
+3. Implement TSK-019: Human Approval Gate & Atomic Patch Executor (`app/remediation/executor.py`, atomic patch application, `.bak` backup, rollback on error, `POST /api/v1/remediations/{id}/approve`, `POST /api/v1/remediations/{id}/reject`).
+4. Implement TSK-020: Automated Reassessment Verification Loop (`app/remediation/verifier.py`, `POST /api/v1/remediations/{id}/verify`).
+5. Update database schema (`RemediationModel`), demo reset provider, OpenAPI contracts, and test suites.
+6. Verify 100% backend test pass rate and author comprehensive API handoff documentation for Developer B.
+
+### Work Performed
+1. **Branch Checkout & Base Verification:**
+   - Branched `backend/TSK-015-018-019-020-ai-remediation` from `backend/TSK-009-011-014-security-operations` at commit `c68502d`.
+2. **Database Entity & Demo Provider Extension:**
+   - Added `RemediationModel` to `apps/backend/app/models/entities.py` with foreign keys to `findings.id` and optional `attack_paths.id`.
+   - Updated `apps/backend/app/demo/provider.py` to flush and seed demo remediation proposals during `POST /api/v1/demo/reset`.
+3. **TSK-015 Grounded AI Analysis & Rule Fallback Engine:**
+   - Implemented `RuleBasedFallbackEngine` in `apps/backend/app/ai/rule_fallback.py` generating deterministic, structured explanations in < 50ms with choke-point analysis and evidence citations.
+   - Implemented `AISecurityAnalyst` in `apps/backend/app/ai/analyzer.py` with timeout guards and graceful degradation to rule-based fallback.
+   - Implemented `POST /api/v1/ai/analyze/{path_id}` endpoint in `apps/backend/app/api/v1/endpoints/ai.py`.
+   - Authored unit test suite in `apps/backend/tests/test_ai_analyzer.py` (6 tests GREEN).
+4. **TSK-018 & TSK-019 & TSK-020 Remediation Pipeline:**
+   - Implemented `UnifiedDiffEngine` in `apps/backend/app/remediation/differ.py` generating standard unified diffs (`--- a/file +++ b/file @@ ... @@`) and context-matching hunk application.
+   - Implemented `RemediationGenerator` in `apps/backend/app/remediation/generator.py` creating remediation proposals with patch and rollback diffs.
+   - Implemented `RemediationExecutor` in `apps/backend/app/remediation/executor.py` enforcing mandatory human approval, creating atomic `.bak` safety backups, and rolling back automatically upon patch failure.
+   - Implemented `RemediationVerifier` in `apps/backend/app/remediation/verifier.py` inspecting patched files, marking remediations `PASSED`, transitioning findings to `RESOLVED`, and transitioning attack paths to `MITIGATED`.
+   - Authored pipeline test suite in `apps/backend/tests/test_remediation_pipeline.py` (6 tests GREEN).
+5. **Remediation REST API Endpoints:**
+   - Implemented `apps/backend/app/api/v1/endpoints/remediations.py` mounting `GET /api/v1/remediations`, `GET /api/v1/remediations/{id}`, `POST /api/v1/remediations/{id}/approve`, `POST /api/v1/remediations/{id}/reject`, and `POST /api/v1/remediations/{id}/verify`.
+   - Mounted routes into `apps/backend/app/api/v1/router.py`.
+   - Authored endpoint test suite in `apps/backend/tests/test_remediation_endpoints.py` (3 tests GREEN).
+6. **OpenAPI Contracts & Architecture Decision Records:**
+   - Created `contracts/schemas/ai-analysis.schema.json`.
+   - Updated `contracts/openapi/openapi.yaml` documenting all new endpoints, query parameters, and schema models (`AIAnalysisResponse`, `EvidenceReference`, `RemediationRejectRequest`).
+   - Logged and accepted `ADR-014` in `docs/03-project-management/DECISIONS.md`.
+   - Updated `docs/03-project-management/TASK_TRACKER.md` marking TSK-015, TSK-018, TSK-019, TSK-020 as `IN_REVIEW`.
+   - Preserved `apps/frontend/` completely untouched.
+
+### Files Created or Modified
+- `apps/backend/app/models/entities.py` (Modified - added RemediationModel)
+- `apps/backend/app/models/__init__.py` (Modified - exported RemediationModel)
+- `apps/backend/app/demo/provider.py` (Modified - added remediation cleanup/seeding)
+- `apps/backend/app/schemas/ai.py` (Created)
+- `apps/backend/app/schemas/remediation.py` (Modified)
+- `apps/backend/app/ai/rule_fallback.py` (Modified/Created)
+- `apps/backend/app/ai/analyzer.py` (Created)
+- `apps/backend/app/remediation/differ.py` (Created)
+- `apps/backend/app/remediation/generator.py` (Created)
+- `apps/backend/app/remediation/executor.py` (Created)
+- `apps/backend/app/remediation/verifier.py` (Created)
+- `apps/backend/app/api/v1/endpoints/ai.py` (Created)
+- `apps/backend/app/api/v1/endpoints/remediations.py` (Created)
+- `apps/backend/app/api/v1/router.py` (Modified)
+- `apps/backend/tests/test_ai_analyzer.py` (Created)
+- `apps/backend/tests/test_remediation_pipeline.py` (Created)
+- `apps/backend/tests/test_remediation_endpoints.py` (Created)
+- `apps/backend/tests/conftest.py` (Modified)
+- `contracts/schemas/ai-analysis.schema.json` (Created)
+- `contracts/openapi/openapi.yaml` (Modified)
+- `docs/03-project-management/DECISIONS.md` (Modified - added ADR-014)
+- `docs/03-project-management/TASK_TRACKER.md` (Modified)
+- `docs/03-project-management/PROJECT_CONTEXT.md` (Modified)
+- `docs/03-project-management/DEVELOPMENT_LOG.md` (Modified)
+
+### Tests Executed & Actual Results
+- Command: `python -m pytest apps/backend/tests -v`
+- Result: **104 passed in 2.78s** (100% pass rate, 0 errors, 0 warnings across 18 test files).
+- Coverage: **89% overall statement coverage** (2111 total lines, 239 missed).
+  - `apps\backend\app\ai\rule_fallback.py`: 100%
+  - `apps\backend\app\ai\analyzer.py`: 74%
+  - `apps\backend\app\remediation\differ.py`: 93%
+  - `apps\backend\app\remediation\generator.py`: 95%
+  - `apps\backend\app\remediation\executor.py`: 82%
+  - `apps\backend\app\remediation\verifier.py`: 79%
+  - `apps\backend\app\api\v1\endpoints\remediations.py`: 80%
+  - `apps\backend\app\api\v1\endpoints\ai.py`: 90%
+
+### Next Steps
+- Commit and push `backend/TSK-015-018-019-020-ai-remediation`.
+- Open PR targeting `backend/TSK-009-011-014-security-operations`.
+- Deliver comprehensive API handoff documentation for Developer B.

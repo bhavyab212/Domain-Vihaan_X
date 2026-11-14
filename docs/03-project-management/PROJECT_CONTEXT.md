@@ -4,7 +4,7 @@
 > **Project Name:** Domain-Vihaan_X  
 > **Domain:** Cybersecurity (VIHAAN X Hackathon)  
 > **Status:** ACTIVE LIVING DOCUMENT (Single Source of Truth)  
-> **Last Updated:** 2026-11-15T00:57:00+05:30  
+> **Last Updated:** 2026-11-15T05:00:00+05:30  
 > **Baseline Commit:** `5a93ed7fa033f2829a14e66a4046fe77dfbaf39f` (`main`)  
 > **Current Strategic Doctrine:** **Frontend-first. Backend-reliable. Demo-driven.**  
 
@@ -23,15 +23,23 @@
 
 ## 2. Current Project Objective
 
-Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine (`FindingNormalizer`), NetworkX Business Security Graph (`AssetSecurityGraph`), and Bounded DFS Attack-Path Traversal Engine (`AttackPathEngine`) on stacked branch `backend/TSK-005-006-008-intelligence`.
+Deliver the complete, fully integrated backend intelligence & remediation engine:
+1. Grounded AI Analysis Engine with deterministic rule fallback (< 50ms) (TSK-015).
+2. Human-in-the-Loop Remediation Generator & Unified Diff Engine (TSK-018).
+3. Human Approval Gate & Atomic Patch Executor with `.bak` safety rollback (TSK-019).
+4. Automated Reassessment Verification Loop for closed-loop attack path mitigation (TSK-020).
+All on active feature branch `backend/TSK-015-018-019-020-ai-remediation`.
 
 ---
 
 ## 3. Current Development Phase
 
-- **Current Phase:** **Phase 3 — Security Operations & Hardened Integrations (TSK-009, TSK-011, TSK-012, TSK-013, TSK-014 Completed & In Review; TSK-002, TSK-003, TSK-005, TSK-006, TSK-008 Consolidated & In Review)**
-- **Active Task Branch:** `backend/TSK-009-011-014-security-operations` (stacked on `backend/TSK-002-005-006-008-integration`)
-- **Next Phase:** **TSK-015: Grounded AI Analysis + TSK-018: Remediation Diff Generator + TSK-019: Human Approval + TSK-020: Verification Loop**
+- **Current Phase:** **Phase 4 — AI Security Intelligence & Human-in-the-Loop Remediation Engine (TSK-015, TSK-018, TSK-019, TSK-020 Completed & Tested; All 104 Backend Tests Passing with 89% Coverage)**
+- **Active Task Branch:** `backend/TSK-015-018-019-020-ai-remediation`
+- **Previous Feature Branches:**
+  - `backend/TSK-009-011-014-security-operations` (Pushed to origin)
+  - `backend/TSK-002-005-006-008-integration` (Pushed to origin)
+- **Next Phase:** **Frontend Handoff & End-to-End Demo Rehearsal (Assisting Developer B with React Flow & 5 Primary UIs)**
 
 ---
 
@@ -65,6 +73,7 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 - **ADR-007:** Human-Approved Remediation for Hackathon MVP (`ACCEPTED`).
 - **ADR-008:** Deterministic Contextual Risk Scoring with Structured LLM Explanations (`ACCEPTED` under delegated architectural authority).
 - **ADR-009:** Synthetic Test Assets and Controlled Demonstration Scenario (`ACCEPTED`).
+- **ADR-014:** Grounded AI Analysis, Human-Approved Patch Execution, and Reassessment Verification Loop (`ACCEPTED` under delegated architectural authority).
 
 ### Proposed Architecture Awaiting Formal Approval
 - **ADR-006:** React Flow (`@xyflow/react`) for Graph Visualization (`PROPOSED`).
@@ -78,7 +87,7 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 ## 6. Technology Stack Baseline
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Flow (`@xyflow/react`), Lucide React.
-- **Backend:** Python 3.11+, FastAPI (ASGI), Pydantic V2, NetworkX (Graph Algorithms).
+- **Backend:** Python 3.11+, FastAPI (ASGI), Pydantic V2, NetworkX (Graph Algorithms), SQLAlchemy 2.0.
 - **Database:** SQLite (WAL mode, foreign keys enabled).
 - **Scanners:** Gitleaks, Checkov, Trivy, Subfinder.
 - **Integration Framework:** HexStrike-AI (via hardened local REST/MCP adapter; non-blocking).
@@ -88,7 +97,7 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
 ## 7. Current Repository State
 
 - **Local Directory:** `d:\REAL_projects\Domain-Vihaan X`
-- **Current Branch:** `backend/TSK-009-011-014-security-operations`
+- **Current Branch:** `backend/TSK-015-018-019-020-ai-remediation`
 - **Application Code Status:** 
   - Backend Application Foundation complete (`apps/backend/app/main.py`).
   - Synthetic Demo Provider & Reset Engine complete (`apps/backend/app/demo/provider.py`).
@@ -98,6 +107,27 @@ Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine
   - Contextual Risk Engine complete (`apps/backend/app/intelligence/risk_engine.py` - TSK-009).
   - Hardened Gitleaks Subprocess Adapter complete (`apps/backend/app/integrations/scanners/gitleaks.py` - TSK-011).
   - Hardened Checkov IaC Subprocess Adapter complete (`apps/backend/app/integrations/scanners/checkov.py` - TSK-012).
+  - Hardened HexStrike Loopback Bridge complete (`apps/backend/app/integrations/scanners/hexstrike.py` - TSK-013).
+  - Subfinder Subdomain Discovery Adapter complete (`apps/backend/app/integrations/scanners/subfinder.py` - TSK-014).
+  - Multi-Scanner Assessment Runner complete (`apps/backend/app/orchestration/runner.py`).
+  - Grounded AI Security Analyst & Rule Fallback Engine complete (`apps/backend/app/ai/analyzer.py`, `app/ai/rule_fallback.py` - TSK-015).
+  - Unified Diff Engine & Remediation Proposal Generator complete (`apps/backend/app/remediation/differ.py`, `app/remediation/generator.py` - TSK-018).
+  - Human Approval Gate & Atomic Patch Executor complete (`apps/backend/app/remediation/executor.py` - TSK-019).
+  - Automated Reassessment Verification Loop complete (`apps/backend/app/remediation/verifier.py` - TSK-020).
+  - Endpoints:
+    - `POST /api/v1/demo/reset`
+    - `GET /api/v1/health`
+    - `GET /api/v1/assets`, `POST /api/v1/assets`
+    - `POST /api/v1/assessments/trigger`, `GET /api/v1/assessments/{id}/status`
+    - `GET /api/v1/findings`
+    - `GET /api/v1/graph`
+    - `GET /api/v1/attack-paths`
+    - `POST /api/v1/ai/analyze/{path_id}`
+    - `GET /api/v1/remediations`, `GET /api/v1/remediations/{id}`
+    - `POST /api/v1/remediations/{id}/approve`, `POST /api/v1/remediations/{id}/reject`
+    - `POST /api/v1/remediations/{id}/verify`
+  - **104 automated tests passing** across 18 test suites in 2.78s with 89% total coverage and 0 warnings.
+  - Zero modifications to `apps/frontend/` (Developer B workspace strictly preserved).
   - Hardened HexStrike Loopback Bridge complete (`apps/backend/app/integrations/scanners/hexstrike.py` - TSK-013).
   - Subfinder Subdomain Discovery Adapter complete (`apps/backend/app/integrations/scanners/subfinder.py` - TSK-014).
   - Multi-Scanner Assessment Runner complete (`apps/backend/app/orchestration/runner.py`).
