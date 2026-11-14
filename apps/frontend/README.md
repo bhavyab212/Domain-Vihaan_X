@@ -61,8 +61,8 @@ is a candidate for `React.lazy` code-splitting if load time ever matters.
 | Route | View | Purpose |
 | :--- | :--- | :--- |
 | `/` | Security Command Center | Findings tallied by severity, potential attack paths, MVP domain overview, asset inventory, recent activity, priority recommendations |
-| `/graph` | Business Security Graph | Interactive React Flow map (repository, secret finding, IAM role, cloud storage): drag, zoom, pan, fit view, minimap, node selection, inspector, potential-path highlight |
-| `/threats` | Threats & Findings | Search/filter table, severity, category, asset, scanner, provenance, detail drawer with evidence and guidance |
+| `/graph` | Business Security Graph | Interactive React Flow map (repository, secret finding, IAM role, cloud storage): drag, zoom, pan, fit view, minimap, node and relationship selection, inspectors, potential-path highlight |
+| `/threats` | Threats & Findings | Triage workspace: category tabs, severity quick-filter, search, scanner / asset / status / provenance filters with removable chips, sortable columns, URL-restorable view, detail drawer with evidence and previous/next navigation. See "Findings center" |
 | `/paths` | Attack Path Investigation | Entry point → steps → target, choke point, evidence references, confidence; always labelled *inferred* |
 | `/remediation` | Remediation Studio | Queue, recommended fix, unified diff, human approval, lifecycle stepper, verification result |
 
@@ -115,15 +115,20 @@ Developer A to consolidate rather than edited here.
 | `model.ts` | **Pure** data preparation (no React or DOM): backend graph + assets + findings to React Flow nodes and edges; selection and path styling; edge side routing. Unit-tested without rendering |
 | `layout.ts` | Deterministic layered layout (no randomness or physics): non-finding nodes flow left to right by dependency depth; findings hang under the node that exposes them |
 | `GraphCanvas.tsx` | React Flow wiring: controls, minimap, fit view, drag state, keyboard selection, path focus |
-| `nodes/AssetNode.tsx`, `nodes/FindingNode.tsx` | Custom node cards (memoised) |
+| `nodes/AssetNode.tsx`, `nodes/IdentityNode.tsx`, `nodes/FindingNode.tsx` | Custom node cards (memoised) |
 | `edges/AttackEdge.tsx` | Custom relationship edge with label, confidence and path flow (memoised) |
+| `NodeInspector.tsx` | `NodeInspector` for a selected node and `EdgeInspector` for a selected relationship |
 
-**Node model.** Asset cards show type (repository, cloud account, data store, identity, target), name, environment,
-criticality and one metadata line (branch, provider or ARN) **only when the data source supplies it**. Finding cards show
-title, severity, scanner label, associated asset and a provenance badge. No evidence text, secret values or credentials are
-ever rendered on a node (the masked excerpt lives in the Threats & Findings drawer). Asset records carry no provenance
-field in the API contract, so the small flask mark on asset cards reflects the data source (local preview), not a per-asset
-claim.
+**Node model.** Asset cards (repository, cloud account, data store, target) show type, name, environment, criticality,
+owner and one metadata line (branch, provider or ARN) **only when the data source supplies it**. Finding cards show title,
+severity, scanner label, associated asset and a provenance badge. No evidence text, secret values or credentials are ever
+rendered on a node (the masked excerpt lives in the Threats & Findings drawer). Asset records carry no provenance field in
+the API contract, so the small flask mark on asset cards reflects the data source (local preview), not a per-asset claim.
+
+**Identity nodes are never fabricated.** An `IdentityNode` is created only for a graph node whose payload `type` is
+`"IDENTITY"`; a cloud account in an `ASSET` node stays an asset card. When the inventory record behind an identity has a
+different name from the node label, the card also shows that real asset ("in cloud account aws-production-account"), so the
+label can never stand in for it.
 
 **Edge model.** Styling comes from the backend's own `inferred` flag, never from guesswork.
 
@@ -143,6 +148,46 @@ when focused) updates the inspector and highlights its connected relationships w
 path" focuses the camera on the path nodes while keeping the rest of the graph visible, and labels it *not a confirmed
 exploit*. Nodes are keyboard-focusable with descriptive `aria-label`s, and the canvas announces node and relationship
 counts. React Flow's small "React Flow" attribution is kept at the bottom of the canvas (MIT licence, no Pro subscription).
+
+**Relationship selection.** Clicking an edge selects it and opens the relationship inspector: type, verified vs inferred,
+confidence (only when supplied), both endpoints (clickable) and, when it is a hop of the highlighted path, a "not a
+confirmed exploit" note. A node and a relationship are never selected at the same time, and clicking the empty canvas
+clears both. The canvas wires this only when given `onSelectEdge`, so `GraphCanvasProps` stays backward compatible.
+
+---
+
+## 3b. Findings center (`/threats`)
+
+| File | Responsibility |
+| :--- | :--- |
+| `triage.ts` | **Pure** filtering, sorting and tab counts. Only hides or reorders records the API returned; no scoring |
+| `urlState.ts` | Triage state to and from URL search params; defensive parsing, defaults omitted from the URL |
+| `categories.ts` | The single centralised scanner to category mapping (display and filtering only) |
+| `FindingsView.tsx` | Composes the above, owns URL state and drawer navigation |
+| `CategoryTabs`, `SeverityStrip`, `FilterBar`, `FindingsTable`, `FindingDrawer` | Presentation |
+
+**Categories are derived, not backend data.** The OpenAPI `Finding` has no `category` field (nor does the newest unmerged
+backend contract), so the category is derived from the scanner (gitleaks: Secret, checkov: IaC, trivy: Vulnerability,
+subfinder: External surface, anything else: Other). It is a display and filter convenience only. If the backend adds a
+canonical field, `categoryIdOf` in `categories.ts` is the only place that changes.
+
+**Filters really filter.** The category tabs and severity strip are filters, not decoration: each count already reflects
+every *other* active filter, so the number on a tab always equals the rows clicking it would show. Search covers title,
+description, id, scanner, asset name and file/resource. SIMULATED_DEMO and the legacy SIMULATED are one "Simulated demo"
+provenance group, distinct from Observed and Inferred.
+
+**Sorting.** Severity, finding, source and discovered are sortable (`aria-sort`, keyboard-operable). The default is most
+severe first then newest; ties break deterministically so order never depends on input order.
+
+**Shareable view.** Filters, sort and the open finding live in the URL (`?category=IAC&sort=title&dir=asc&f=find-sec-01`).
+Reloading or sharing restores the view. Opening a finding is a history entry (Back closes the drawer); filter and sort
+changes replace the entry. A link to a finding absent from the current data source says so rather than failing silently.
+
+**Drawer.** Provenance note (simulated, observed or inferred), CVSS and CVE only when supplied, asset, file and resource,
+masked evidence excerpt, remediation guidance. Previous / next walks the *filtered, sorted* list (also `j` / `k`).
+
+**Data source.** In API mode the table shows backend findings only. A failed request shows an error with retry and never
+falls back to fixtures; preview findings appear only when preview is explicitly selected.
 
 ---
 
@@ -195,14 +240,19 @@ excerpts, and two illustrative remediation diffs (the IAM diff uses an explicit 
 
 ## 6. Testing
 
-`npm test` runs 164 tests across 8 files: routing and active nav state, offline usability, preview provenance, `/health`
+`npm test` runs 291 tests across 12 files: routing and active nav state, offline usability, preview provenance, `/health`
 reflection, error/empty/retry states, no leakage of server error bodies, reset honesty and response validation, approval
 honesty, lifecycle rules, API client classification, a git-index import guard, and fixture parity with `data/demo/`.
 
-Graph coverage (`features/graph`): pure model tests (layout determinism and no-overlap, node and edge building, selection
-and path styling, animation only on active-path edges, reduced motion) and canvas tests (node and edge counts, zoom
-controls, selection by click and keyboard, inspector round-trip, empty / single-node / broken-edge graphs, custom node
-content, dashed vs solid edges, path highlighting).
+Graph coverage (`features/graph`): pure model tests (layout determinism and no-overlap, node and edge building, identity
+honesty, selection and path styling, animation only on active-path edges, reduced motion), canvas tests (node and edge
+counts, zoom controls, selection by click and keyboard, empty / single-node / broken-edge graphs, custom node content,
+dashed vs solid edges, path highlighting) and view tests (preview vs API data source, error / empty / 404 handling, no
+request loop, relationship selection and both inspectors).
+
+Findings coverage (`features/findings`): pure triage tests (every filter and combination, search fields, every sort and
+stability, tab counts), URL state tests (round trip, malformed and hostile input), and view tests (table, tabs, strip,
+chips, clear-all, drawer, previous/next, deep links, API mode never using fixtures, loading / error / empty states).
 
 jsdom has no layout engine, so `src/test/setup.ts` shims `ResizeObserver` and `DOMMatrixReadOnly`, and defaults a missing
 `UIEvent.view` to `window` (user-event sends `null`, which d3-drag cannot handle). These let React Flow mount; they do
@@ -217,9 +267,13 @@ jsdom has no layout engine, so `src/test/setup.ts` shims `ResizeObserver` and `D
 - **Graph layout is fixed, not auto-routed:** drag positions are not persisted across reloads, and edge routing is
   computed from the initial layout (dragging a node does not change which side an edge leaves from).
 - **Graph is not tested against live backend graph data** (the backend `/graph` route returns placeholders for now).
-- **Contract gaps** (reported, not worked around): no `category` on Finding (the Category column is derived from the
-  scanner name for display only), no evidence endpoint, no `chokePointAssetId` in `attack-path.schema.json`, no
-  remediation execute/verify endpoints.
+- **Contract gaps** (reported, not worked around): no `category` on Finding (derived from the scanner name for display
+  and filtering only), no evidence endpoint, no `chokePointAssetId` in `attack-path.schema.json`, no remediation
+  execute/verify endpoints.
+- **The findings table is not paginated or virtualised.** That is deliberate for today's data volume; revisit if a backend
+  returns hundreds of findings.
+- **Table and graph state are not shared yet:** selecting a finding does not select its graph node (a deep link goes the
+  other way: graph inspector to `/threats?f=<id>`).
 - No authentication headers are sent (the documented `X-API-Key` is not part of OpenAPI).
 - Not audited with a screen reader; keyboard and ARIA basics are in place.
 

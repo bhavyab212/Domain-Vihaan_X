@@ -1,17 +1,45 @@
 /**
- * PRESENTATION-ONLY label mapping.
+ * PRESENTATION-ONLY category mapping (single, centralised place).
  *
- * The OpenAPI Finding has no `category` field (API_CONTRACT.md lists one in its own, different
- * payload). Until the contract defines it, we show a descriptive label derived from the scanner name.
- * It is purely a display convenience: it is never used for scoring or any security decision.
+ * The OpenAPI `Finding` has no `category` field, and neither does Dev A's newest (unmerged) contract. Until the
+ * backend defines one, the category shown in the UI is DERIVED from the scanner identity below. It is a display
+ * and filtering convenience only: it is never sent anywhere, never used for scoring, and never presented as
+ * backend data. If a canonical `category` field arrives, adapt `categoryIdOf` here and nothing else changes.
  */
-const SCANNER_CATEGORY: Record<string, string> = {
-  gitleaks: 'Secret',
-  checkov: 'IaC',
-  trivy: 'Dependency / container',
-  subfinder: 'External surface',
+
+export type FindingCategory = 'SECRET' | 'IAC' | 'VULNERABILITY' | 'EXTERNAL' | 'OTHER';
+
+export const CATEGORY_ORDER: FindingCategory[] = ['SECRET', 'IAC', 'VULNERABILITY', 'EXTERNAL', 'OTHER'];
+
+/** Short labels (table cells, tabs). */
+export const CATEGORY_LABEL: Record<FindingCategory, string> = {
+  SECRET: 'Secret',
+  IAC: 'IaC',
+  VULNERABILITY: 'Vulnerability',
+  EXTERNAL: 'External surface',
+  OTHER: 'Other',
 };
 
+/** Longer descriptions (tooltips / accessible names). */
+export const CATEGORY_DESCRIPTION: Record<FindingCategory, string> = {
+  SECRET: 'Exposed credentials and secrets',
+  IAC: 'Infrastructure as Code misconfiguration',
+  VULNERABILITY: 'Software composition and container vulnerabilities',
+  EXTERNAL: 'External attack surface',
+  OTHER: 'Scanner with no category mapping',
+};
+
+const SCANNER_CATEGORY: Record<string, FindingCategory> = {
+  gitleaks: 'SECRET',
+  checkov: 'IAC',
+  trivy: 'VULNERABILITY',
+  subfinder: 'EXTERNAL',
+};
+
+export function categoryIdOf(scanner: string): FindingCategory {
+  return SCANNER_CATEGORY[scanner.toLowerCase()] ?? 'OTHER';
+}
+
 export function categoryOf(scanner: string): string {
-  return SCANNER_CATEGORY[scanner.toLowerCase()] ?? 'Other';
+  return CATEGORY_LABEL[categoryIdOf(scanner)];
 }

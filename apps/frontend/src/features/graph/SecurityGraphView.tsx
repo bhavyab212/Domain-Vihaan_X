@@ -12,7 +12,7 @@ import { indexById } from '@/lib/utils/format';
 import type { AttackPath, DigitalAsset, SecurityFinding, SecurityGraph } from '@/types';
 import { GraphCanvas, GraphLegend } from './GraphCanvas';
 import { pathHighlight } from './model';
-import { NodeInspector } from './NodeInspector';
+import { EdgeInspector, NodeInspector } from './NodeInspector';
 
 interface GraphBundle {
   graph: SecurityGraph;
@@ -25,7 +25,17 @@ interface GraphBundle {
 function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
   const { source } = useDataSource();
   const { graph, assets, findings, paths } = bundle;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A node and a relationship are never selected at the same time: picking one clears the other.
+  const [selectedId, setSelectedNode] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeState] = useState<string | null>(null);
+  const setSelectedId = (id: string | null) => {
+    setSelectedNode(id);
+    if (id !== null) setSelectedEdgeState(null);
+  };
+  const setSelectedEdgeId = (id: string | null) => {
+    setSelectedEdgeState(id);
+    if (id !== null) setSelectedNode(null);
+  };
   const [showPath, setShowPath] = useState(false);
   const [pathId, setPathId] = useState<string | null>(null);
 
@@ -38,6 +48,7 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
     [graph, activePath, showPath],
   );
   const selectedNode = graph.nodes.find((n) => n.id === selectedId) ?? null;
+  const selectedEdge = graph.edges.find((e) => e.id === selectedEdgeId) ?? null;
 
   if (graph.nodes.length === 0) {
     return (
@@ -104,6 +115,8 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
             findings={findings}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            selectedEdgeId={selectedEdgeId}
+            onSelectEdge={setSelectedEdgeId}
             highlight={highlight}
             origin={source.origin}
           />
@@ -122,8 +135,17 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
       </Panel>
 
       <Panel aria-labelledby="inspector-title" className="self-start">
-        <PanelHeader id="inspector-title" title="Selected node" />
-        <NodeInspector node={selectedNode} graph={graph} assets={assetIndex} findings={findingIndex} />
+        <PanelHeader id="inspector-title" title={selectedEdge ? 'Selected relationship' : 'Selected node'} />
+        {selectedEdge ? (
+          <EdgeInspector
+            edge={selectedEdge}
+            graph={graph}
+            onPath={highlight.edges.has(selectedEdge.id)}
+            onSelectNode={setSelectedId}
+          />
+        ) : (
+          <NodeInspector node={selectedNode} graph={graph} assets={assetIndex} findings={findingIndex} />
+        )}
       </Panel>
     </div>
   );

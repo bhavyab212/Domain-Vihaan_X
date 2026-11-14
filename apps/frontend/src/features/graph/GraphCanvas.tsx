@@ -25,12 +25,14 @@ import {
   EDGE_TYPE_RELATIONSHIP,
   NODE_TYPE_ASSET,
   NODE_TYPE_FINDING,
+  NODE_TYPE_IDENTITY,
   styleNodes,
   type GraphFlowNode,
   type Highlight,
 } from './model';
 import { AssetNode } from './nodes/AssetNode';
 import { FindingNode } from './nodes/FindingNode';
+import { IdentityNode } from './nodes/IdentityNode';
 
 /**
  * GraphCanvas: the rendering boundary for the Business Security Graph, implemented with React Flow
@@ -46,13 +48,23 @@ export interface GraphCanvasProps {
   findings: SecurityFinding[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /**
+   * Optional relationship selection. When supplied, clicking an edge selects it (and the parent decides what to
+   * show). Omit both to keep nodes-only selection.
+   */
+  selectedEdgeId?: string | null;
+  onSelectEdge?: (id: string | null) => void;
   /** Node ids and edge ids on the highlighted potential attack path (empty = no highlight). */
   highlight: Highlight;
   origin: DataOrigin;
 }
 
 /** Stable references: React Flow warns (and re-mounts every node) if these are recreated per render. */
-const NODE_TYPES: NodeTypes = { [NODE_TYPE_ASSET]: AssetNode, [NODE_TYPE_FINDING]: FindingNode };
+const NODE_TYPES: NodeTypes = {
+  [NODE_TYPE_ASSET]: AssetNode,
+  [NODE_TYPE_IDENTITY]: IdentityNode,
+  [NODE_TYPE_FINDING]: FindingNode,
+};
 const EDGE_TYPES: EdgeTypes = { [EDGE_TYPE_RELATIONSHIP]: AttackEdge };
 
 const FIT_OPTIONS = { padding: 0.12, maxZoom: 1.1, duration: 350 } as const;
@@ -69,7 +81,17 @@ function minimapColor(node: GraphFlowNode): string {
   return severity ? SEVERITY_STYLE[severity].hex : '#2A3C5E';
 }
 
-function CanvasInner({ graph, assets, findings, selectedId, onSelect, highlight, origin }: GraphCanvasProps) {
+function CanvasInner({
+  graph,
+  assets,
+  findings,
+  selectedId,
+  onSelect,
+  selectedEdgeId = null,
+  onSelectEdge,
+  highlight,
+  origin,
+}: GraphCanvasProps) {
   const reducedMotion = useReducedMotion();
   const { fitView } = useReactFlow();
 
@@ -89,7 +111,10 @@ function CanvasInner({ graph, assets, findings, selectedId, onSelect, highlight,
     [structural, dragged],
   );
 
-  const view = useMemo(() => ({ selectedId, highlight, reducedMotion }), [selectedId, highlight, reducedMotion]);
+  const view = useMemo(
+    () => ({ selectedId, selectedEdgeId, highlight, reducedMotion }),
+    [selectedId, selectedEdgeId, highlight, reducedMotion],
+  );
   const nodes = useMemo(() => styleNodes(positioned, view), [positioned, view]);
   // Edges are routed from the initial layout so a drag does not flip which side an edge leaves from.
   const edges = useMemo(() => buildFlowEdges(graph, structural, view), [graph, structural, view]);
@@ -159,14 +184,20 @@ function CanvasInner({ graph, assets, findings, selectedId, onSelect, highlight,
         edgeTypes={EDGE_TYPES}
         onNodesChange={onNodesChange}
         onNodeClick={(_, node) => onSelect(node.id === selectedId ? null : node.id)}
-        onPaneClick={() => onSelect(null)}
+        onEdgeClick={(_, edge) => {
+          if (onSelectEdge) onSelectEdge(edge.id === selectedEdgeId ? null : edge.id);
+        }}
+        onPaneClick={() => {
+          onSelect(null);
+          onSelectEdge?.(null);
+        }}
         fitView
         fitViewOptions={FIT_OPTIONS}
         minZoom={0.25}
         maxZoom={2}
         nodesDraggable
         nodesConnectable={false}
-        edgesFocusable={false}
+        edgesFocusable={onSelectEdge !== undefined}
         elementsSelectable
         nodesFocusable
         zoomOnDoubleClick={false}

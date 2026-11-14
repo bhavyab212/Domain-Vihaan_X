@@ -213,13 +213,36 @@ describe('TSK-010: custom nodes', () => {
     expect(repo.getByText('Critical criticality')).toBeInTheDocument();
     expect(repo.getByText('branch main')).toBeInTheDocument();
 
-    expect(within(nodeEl(canvas, 'asset-cloud-01')).getByText('Identity')).toBeInTheDocument();
+    expect(repo.getByText('Owner: Engineering Team')).toBeInTheDocument();
+
     expect(within(nodeEl(canvas, 'asset-storage-01')).getByText('Target')).toBeInTheDocument();
   });
 
-  it('distinguishes asset cards from finding cards', async () => {
+  it('renders the payload IDENTITY node as an identity card with its real backing asset, owner and environment', async () => {
     const { canvas } = await mount();
+    const identity = within(nodeEl(canvas, 'asset-cloud-01'));
+    expect(identity.getByText('Identity')).toBeInTheDocument();
+    expect(identity.getByText('StagingDeployer (IAM role)')).toBeInTheDocument();
+    expect(identity.getByText('in cloud account aws-production-account')).toBeInTheDocument();
+    expect(identity.getByText('Owner: DevOps Team')).toBeInTheDocument();
+    expect(identity.getByText('Production')).toBeInTheDocument();
+    expect(canvas.querySelectorAll('[data-testid="identity-node"]')).toHaveLength(1);
+  });
+
+  it('does not render an identity card when the payload has no IDENTITY node', async () => {
+    const noIdentity: SecurityGraph = {
+      ...PREVIEW_GRAPH,
+      nodes: PREVIEW_GRAPH.nodes.map((n) => (n.type === 'IDENTITY' ? { ...n, type: 'ASSET' as const } : n)),
+    };
+    const { canvas } = await mount({ graph: noIdentity });
+    expect(canvas.querySelectorAll('[data-testid="identity-node"]')).toHaveLength(0);
     expect(canvas.querySelectorAll('[data-testid="asset-node"]')).toHaveLength(3);
+  });
+
+  it('distinguishes asset, identity and finding cards', async () => {
+    const { canvas } = await mount();
+    expect(canvas.querySelectorAll('[data-testid="asset-node"]')).toHaveLength(2);
+    expect(canvas.querySelectorAll('[data-testid="identity-node"]')).toHaveLength(1);
     expect(canvas.querySelectorAll('[data-testid="finding-node"]')).toHaveLength(2);
     expect(canvas.querySelector('[data-testid="finding-node"]')?.className).toMatch(/border-dashed/);
     expect(canvas.querySelector('[data-testid="asset-node"]')?.className).not.toMatch(/border-dashed/);
