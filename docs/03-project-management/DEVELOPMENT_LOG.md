@@ -292,3 +292,68 @@ Implement deterministic synthetic SaaS scenario restoration, isolated runtime wo
 - Push stacked branch `backend/TSK-002-demo-reset` to origin.
 - Prepare PR targeting `backend/TSK-003-foundation` (or `integration` upon merge).
 - Generate autonomous prompt for TSK-005.
+
+
+---
+
+## 2026-11-15 — Session 6: Developer A — TSK-002 Review Fixes + TSK-005 + TSK-006 + TSK-008 Intelligence Pipeline
+
+### Objective
+1. Resolve review blockers on TSK-002 (PR #3 / `backend/TSK-002-demo-reset`):
+   - Fix A: Two-phase filesystem staging with atomic swap and rollback on DB failure.
+   - Fix B: SQLite WAL error handling (raise ConfigurationError on PRAGMA failure, verify journal_mode and foreign_keys).
+   - Fix C: Complete scenario validation in `load_scenario()` (assets, findings, relationships, attack paths, confidence bounds, severity & provenance).
+   - Push updated `backend/TSK-002-demo-reset` and verify remote commit.
+2. Establish stacked branch `backend/TSK-005-006-008-intelligence`.
+3. Implement TSK-005: Finding Normalization Engine (`FindingNormalizer` for Gitleaks, Checkov, Trivy, Subfinder, SHA-256 fingerprinting, secret value redaction, malformed input resilience, and quarantine).
+4. Implement TSK-006: NetworkX Business Security Graph (`AssetSecurityGraph`) connected to database with deterministic node & edge ordering, and `GET /api/v1/graph`.
+5. Implement TSK-008: Bounded DFS Attack-Path Traversal engine (`AttackPathEngine`) with cycle prevention, max depth/paths bounds, deterministic neighbor ordering, confidence compounding, and `GET /api/v1/attack-paths`.
+6. End-to-end cross-pipeline integration test (`test_intelligence_pipeline.py`).
+7. Update contracts (`contracts/openapi/openapi.yaml`), task tracker, and documentation.
+
+### Work Performed
+1. **TSK-002 Carryover Fixes Applied to `backend/TSK-002-demo-reset`:**
+   - Updated `apps/backend/app/database/session.py` to check `isinstance(dbapi_connection, sqlite3.Connection)`, log errors, and raise `ConfigurationError` on PRAGMA failures.
+   - Updated `apps/backend/app/demo/provider.py` with two-phase staging (`mock_saas_staging` -> atomic swap with backup -> transactional DB reseeding -> rollback filesystem if DB fails).
+   - Updated `load_scenario()` in `apps/backend/app/demo/provider.py` to strictly validate required keys, unique IDs, referential integrity, confidence scores in `[0.0, 1.0]`, CVSS bounds in `[0.0, 10.0]`, and attack path steps.
+   - Added regression tests in `apps/backend/tests/test_database_reset.py` and `apps/backend/tests/test_demo_provider.py`.
+   - Verified 28 passed tests; committed and pushed to `origin/backend/TSK-002-demo-reset` at commit `de118f3`.
+2. **Branch Management:**
+   - Created and checked out stacked branch `backend/TSK-005-006-008-intelligence` from updated `backend/TSK-002-demo-reset`.
+3. **TSK-005 Finding Normalization Engine:**
+   - Created synthetic test fixtures: `gitleaks_output.json`, `checkov_output.json`, `trivy_output.json`, `subfinder_output.json`.
+   - Implemented `FindingNormalizer` in `apps/backend/app/intelligence/normalizer.py`:
+     - Gitleaks normalizer with strict secret value redaction (`***REDACTED***`).
+     - Checkov IaC failed checks normalizer supporting both single reports and report lists.
+     - Trivy container/package vulnerability normalizer extracting CVEs, packages, and CVSS.
+     - Subfinder external attack surface normalizer.
+     - Deterministic SHA-256 fingerprinting (`find-{digest[:12]}`) and deduplication.
+     - Malformed JSON resilience and quarantine logging (`NormalizationResult`).
+   - Authored unit test suite in `apps/backend/tests/test_normalizer.py` (9 tests passing).
+4. **TSK-006 NetworkX Business Security Graph:**
+   - Implemented `AssetSecurityGraph` in `apps/backend/app/intelligence/asset_graph.py` using `networkx.DiGraph`.
+   - Built database loader `build_from_database(db, include_finding_nodes)` loading `AssetModel`, `RelationshipModel`, and aggregating finding metadata on asset nodes.
+   - Enforced deterministic node and edge sorting in `to_schema()`.
+   - Implemented `GET /api/v1/graph` in `apps/backend/app/api/v1/endpoints/graph.py` using DB dependency.
+   - Authored unit test suite in `apps/backend/tests/test_graph.py` (4 tests passing).
+5. **TSK-008 Attack-Path Traversal Engine & API:**
+   - Implemented `AttackPathEngine` in `apps/backend/app/intelligence/attack_path.py` with bounded directed DFS (`max_depth=5`, `max_paths=10`), cycle prevention, deterministic neighbor order, and confidence compounding.
+   - Implemented `GET /api/v1/attack-paths` in `apps/backend/app/api/v1/endpoints/attack_paths.py` with optional live discovery (`discover=true`) and severity filtering.
+   - Mounted `/attack-paths` router in `apps/backend/app/api/v1/router.py`.
+   - Updated `contracts/openapi/openapi.yaml` to declare `/attack-paths` and `AttackPath` / `AttackPathStep` schemas.
+   - Authored unit test suite in `apps/backend/tests/test_attack_path.py` (5 tests passing).
+6. **Cross-Pipeline Integration Testing:**
+   - Authored `apps/backend/tests/test_intelligence_pipeline.py` verifying full cycle: Reset -> Normalize -> Ingest -> Graph Query -> Attack Paths Query -> Dynamic Discovery.
+   - Executed full test suite: **47 passed in 2.01s** with 0 errors and 0 warnings.
+7. **Documentation Updates:**
+   - Updated `TASK_TRACKER.md` (`TSK-005`, `TSK-006`, `TSK-008` marked `IN_REVIEW`; `TSK-009`, `TSK-011`, `TSK-012` marked `READY`).
+   - Updated `PROJECT_CONTEXT.md` and `DEVELOPMENT_LOG.md`.
+
+### Tests Executed & Actual Results
+- Command: `python -m pytest apps/backend/tests -v`
+- Result: **47 passed in 2.01s** (100% pass rate, 0 warnings).
+
+### Next Steps
+- Commit and push `backend/TSK-005-006-008-intelligence`.
+- Prepare pull request targeting `backend/TSK-002-demo-reset`.
+- Generate autonomous prompt for Dev A covering TSK-009, TSK-011, and TSK-012.

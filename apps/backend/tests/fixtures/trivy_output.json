@@ -1,0 +1,46 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "mock-saas-api:1.0.0",
+  "ArtifactType": "container_image",
+  "Results": [
+    {
+      "Target": "package-lock.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2023-26159",
+          "PkgID": "follow-redirects@1.15.2",
+          "PkgName": "follow-redirects",
+          "InstalledVersion": "1.15.2",
+          "FixedVersion": "1.15.4",
+          "Title": "follow-redirects: Improper input validation",
+          "Description": "follow-redirects before 1.15.4 contains improper input validation vulnerability.",
+          "Severity": "CRITICAL",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 7.5
+            }
+          },
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-26159"
+        },
+        {
+          "VulnerabilityID": "CVE-2022-25883",
+          "PkgID": "semver@7.3.5",
+          "PkgName": "semver",
+          "InstalledVersion": "7.3.5",
+          "FixedVersion": "7.5.2",
+          "Title": "semver: Regular Expression Denial of Service",
+          "Description": "Versions of semver prior to 7.5.2 are vulnerable to ReDoS.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 5.3
+            }
+          },
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-25883"
+        }
+      ]
+    }
+  ]
+}

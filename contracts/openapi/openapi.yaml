@@ -140,6 +140,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/SecurityGraph'
 
+  /attack-paths:
+    get:
+      summary: Query Multi-Hop Attack Paths
+      operationId: listAttackPaths
+      tags:
+        - AttackPaths
+      parameters:
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, MITIGATED]
+        - name: discover
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Dynamically discover new paths using bounded DFS on current security graph
+      responses:
+        '200':
+          description: Discovered or active attack paths traversing from entry points to crown jewels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttackPath'
+
   /remediations:
     get:
       summary: List Proposed Remediations
@@ -344,6 +379,57 @@ components:
               confidence:
                 type: number
         updatedAt:
+          type: string
+          format: date-time
+
+    AttackPathStep:
+      type: object
+      required: [stepNumber, assetId, description, technique]
+      properties:
+        stepNumber:
+          type: integer
+        assetId:
+          type: string
+        findingId:
+          type: string
+        description:
+          type: string
+        technique:
+          type: string
+        mitreTactic:
+          type: string
+
+    AttackPath:
+      type: object
+      required: [id, title, summary, severity, confidenceScore, isSimulated, entryPointAssetId, crownJewelAssetId, steps, status, createdAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL]
+        confidenceScore:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        isSimulated:
+          type: boolean
+        entryPointAssetId:
+          type: string
+        crownJewelAssetId:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttackPathStep'
+        status:
+          type: string
+          enum: [ACTIVE, MITIGATED]
+        createdAt:
           type: string
           format: date-time
 

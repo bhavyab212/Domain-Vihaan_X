@@ -1,0 +1,12 @@
+[
+  {
+    "host": "staging-api.mocksaas.com",
+    "ip": "54.214.12.99",
+    "source": "censys"
+  },
+  {
+    "host": "admin-portal.mocksaas.com",
+    "ip": "54.214.12.105",
+    "source": "virustotal"
+  }
+]

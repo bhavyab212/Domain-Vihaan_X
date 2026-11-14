@@ -23,15 +23,15 @@
 
 ## 2. Current Project Objective
 
-Implement deterministic synthetic SaaS scenario restoration, isolated runtime workspace management, scoped SQLite WAL database reseeding, and the canonical reset endpoint `POST /api/v1/demo/reset` on stacked branch `backend/TSK-002-demo-reset`.
+Deliver the intelligence layer for Domain-Vihaan_X: Finding Normalization Engine (`FindingNormalizer`), NetworkX Business Security Graph (`AssetSecurityGraph`), and Bounded DFS Attack-Path Traversal Engine (`AttackPathEngine`) on stacked branch `backend/TSK-005-006-008-intelligence`.
 
 ---
 
 ## 3. Current Development Phase
 
-- **Current Phase:** **Phase 2 — Core Engine & Interface Development (TSK-002 Reset API In Review; TSK-003 Foundation In Review)**
-- **Active Task Branch:** `backend/TSK-002-demo-reset` (stacked on `backend/TSK-003-foundation`)
-- **Next Phase:** **TSK-005: Finding Normalization Engine (`FindingSchema`)**
+- **Current Phase:** **Phase 2 — Core Engine & Intelligence Development (TSK-005, TSK-006, TSK-008 In Review; TSK-002 Carryover Fixes Completed & Pushed; TSK-003 Foundation In Review)**
+- **Active Task Branch:** `backend/TSK-005-006-008-intelligence` (stacked on `backend/TSK-002-demo-reset`)
+- **Next Phase:** **TSK-009: Risk Scorer + TSK-011: Gitleaks Adapter + TSK-012: Checkov Adapter**
 
 ---
 
@@ -88,15 +88,16 @@ Implement deterministic synthetic SaaS scenario restoration, isolated runtime wo
 ## 7. Current Repository State
 
 - **Local Directory:** `d:\REAL_projects\Domain-Vihaan X`
-- **Remote Repository:** Clean Git repository with latest commit `5a93ed7fa033f2829a14e66a4046fe77dfbaf39f` on `main`.
-- **Files Present:**
-  - Root: `AGENTS.md`, `README.md`, `CHANGELOG.md`
-  - Product (`docs/01-product/`): `PRD.md`, `PRODUCT_VISION.md`, `USER_JOURNEYS.md`
-  - Architecture (`docs/02-architecture/`): `TECHNICAL_IMPLEMENTATION.md`, `SYSTEM_ARCHITECTURE.md`, `DATA_MODEL.md`, `API_CONTRACT.md`, `INTEGRATIONS.md`
-  - Project Management (`docs/03-project-management/`): `PROJECT_CONTEXT.md`, `DEVELOPMENT_LOG.md`, `DECISIONS.md`, `TIMELINE.md`, `TEAM_OWNERSHIP.md`, `TASK_TRACKER.md`
-  - Quality & Security (`docs/04-quality-and-security/`): `TEST_PLAN.md`, `RISK_REGISTER.md`, `SECURITY_MODEL.md`, `HEXSTRIKE_INTEGRATION.md`
-  - Presentation (`docs/05-presentation/`): `DEMO_PLAN.md`, `PITCH_OUTLINE.md`
-- **Application Code Status:** 0 lines of application code written (locked pending team sign-off).
+- **Current Branch:** `backend/TSK-005-006-008-intelligence`
+- **Application Code Status:** 
+  - Backend Application Foundation complete (`apps/backend/app/main.py`).
+  - Synthetic Demo Provider & Reset Engine complete (`apps/backend/app/demo/provider.py`).
+  - Finding Normalization Engine complete (`apps/backend/app/intelligence/normalizer.py`).
+  - Business Security Graph complete (`apps/backend/app/intelligence/asset_graph.py`).
+  - Bounded DFS Attack Path Engine complete (`apps/backend/app/intelligence/attack_path.py`).
+  - Endpoints: `POST /api/v1/demo/reset`, `GET /api/v1/health`, `GET /api/v1/graph`, `GET /api/v1/attack-paths`.
+  - 47 automated tests passing in 2.01s with 0 warnings.
+  - Zero modifications to `apps/frontend/` (Developer B workspace preserved).
 
 ---
 

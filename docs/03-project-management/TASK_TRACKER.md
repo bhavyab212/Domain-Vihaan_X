@@ -28,14 +28,14 @@
 | **TSK-002** | Synthetic SaaS Fixtures & One-Click Reset API | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-003 | FR-017, FR-018 |
 | **TSK-003** | FastAPI App Shell & SQLite WAL Mode Database | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-001 | FR-001, NFR-006 |
 | **TSK-004** | React 18 + Vite Shell & Five Primary UIs Layout | **P0** | Dev B | **READY** | 45 min | TSK-001 | FR-013, NFR-005 |
-| **TSK-005** | Finding Normalization Engine (`FindingSchema`) | **P0** | Dev A | **BACKLOG** | 60 min | TSK-003 | FR-004, NFR-008 |
-| **TSK-006** | NetworkX Business Security Graph Model | **P0** | Dev A | **BACKLOG** | 60 min | TSK-005 | FR-005, FR-006 |
+| **TSK-005** | Finding Normalization Engine (`FindingSchema`) | **P0** | Dev A | **IN_REVIEW** | 60 min | TSK-003 | FR-004, NFR-008 |
+| **TSK-006** | NetworkX Business Security Graph Model | **P0** | Dev A | **IN_REVIEW** | 60 min | TSK-005 | FR-005, FR-006 |
 | **TSK-007** | React Flow Interactive Canvas Setup | **P0** | Dev B | **BACKLOG** | 60 min | TSK-004 | FR-014, NFR-001 |
-| **TSK-008** | Attack-Path Traversal Algorithm (DFS) | **P0** | Dev A | **BACKLOG** | 45 min | TSK-006 | FR-007, NFR-007 |
-| **TSK-009** | Deterministic Contextual Risk Scorer ($0.0-10.0$) | **P0** | Dev A | **BACKLOG** | 30 min | TSK-006 | FR-008, NFR-007 |
+| **TSK-008** | Attack-Path Traversal Algorithm (DFS) | **P0** | Dev A | **IN_REVIEW** | 45 min | TSK-006 | FR-007, NFR-007 |
+| **TSK-009** | Deterministic Contextual Risk Scorer ($0.0-10.0$) | **P0** | Dev A | **READY** | 30 min | TSK-006 | FR-008, NFR-007 |
 | **TSK-010** | Custom Node Cards & Pulsating Attack Edge | **P0** | Dev B | **BACKLOG** | 60 min | TSK-007 | FR-014 |
-| **TSK-011** | Gitleaks CLI Subprocess Adapter (`shell=False`) | **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-002 |
-| **TSK-012** | Checkov IaC Subprocess Adapter (`shell=False`) | **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-002 |
+| **TSK-011** | Gitleaks CLI Subprocess Adapter (`shell=False`) | **P0** | Dev A | **READY** | 30 min | TSK-003 | FR-003, SEC-002 |
+| **TSK-012** | Checkov IaC Subprocess Adapter (`shell=False`) | **P0** | Dev A | **READY** | 30 min | TSK-003 | FR-003, SEC-002 |
 | **TSK-013** | Hardened HexStrike-AI Bridge (Graceful Fallback)| **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-003 |
 | **TSK-014** | Subfinder Subdomain Discovery Adapter | **P0** | Dev A | **BACKLOG** | 30 min | TSK-003 | FR-003, SEC-001 |
 | **TSK-015** | Grounded AI Analysis & Embedded Rule Fallback | **P0** | Dev A | **BACKLOG** | 45 min | TSK-008 | FR-009, NFR-003 |

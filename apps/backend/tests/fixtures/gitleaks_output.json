@@ -1,0 +1,36 @@
+[
+  {
+    "Description": "AWS Access Key",
+    "StartLine": 14,
+    "EndLine": 14,
+    "StartColumn": 1,
+    "EndColumn": 40,
+    "Match": "AKIAIOSFODNN7EXAMPLE",
+    "Secret": "AKIAIOSFODNN7EXAMPLE",
+    "File": "config/staging.env",
+    "Commit": "a1b2c3d4e5f6",
+    "Author": "dev-user",
+    "Email": "dev@mock-saas.com",
+    "Date": "2026-11-14T10:00:00Z",
+    "Message": "Add staging environment variables",
+    "RuleID": "aws-access-key-id",
+    "Fingerprint": "config/staging.env:aws-access-key-id:14"
+  },
+  {
+    "Description": "Generic Private Key",
+    "StartLine": 1,
+    "EndLine": 5,
+    "StartColumn": 1,
+    "EndColumn": 64,
+    "Match": "-----BEGIN RSA PRIVATE KEY-----MIIEowIBAAKCAQEA0...",
+    "Secret": "-----BEGIN RSA PRIVATE KEY-----MIIEowIBAAKCAQEA0...",
+    "File": "certs/server.key",
+    "Commit": "f6e5d4c3b2a1",
+    "Author": "dev-user",
+    "Email": "dev@mock-saas.com",
+    "Date": "2026-11-14T10:02:00Z",
+    "Message": "Add local test certificates",
+    "RuleID": "generic-private-key",
+    "Fingerprint": "certs/server.key:generic-private-key:1"
+  }
+]
