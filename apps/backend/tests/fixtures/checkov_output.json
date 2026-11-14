@@ -1,0 +1,39 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_20",
+        "bc_check_id": "BC_AWS_IAM_1",
+        "check_name": "Ensure S3 bucket an ACL grants READ permissions to everyone",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": ["acl"]
+        },
+        "file_path": "/iac/s3_storage.tf",
+        "file_abs_path": "/workspace/iac/s3_storage.tf",
+        "repo_file_path": "/iac/s3_storage.tf",
+        "file_line_range": [10, 25],
+        "resource": "aws_s3_bucket.customer_vault",
+        "severity": "HIGH",
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-1-acl-read-permissions-everyone"
+      },
+      {
+        "check_id": "CKV_AWS_108",
+        "bc_check_id": "BC_AWS_IAM_2",
+        "check_name": "Ensure IAM policies do not allow data exfiltration actions",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": ["statement"]
+        },
+        "file_path": "/iac/iam_staging.tf",
+        "file_abs_path": "/workspace/iac/iam_staging.tf",
+        "repo_file_path": "/iac/iam_staging.tf",
+        "file_line_range": [30, 45],
+        "resource": "aws_iam_policy.wildcard_admin",
+        "severity": "CRITICAL",
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/iam-policies/iam-data-exfiltration"
+      }
+    ]
+  }
+}

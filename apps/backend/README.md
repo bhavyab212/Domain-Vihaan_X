@@ -90,6 +90,8 @@ apps/backend/
    - OpenAPI JSON Schema: `http://localhost:8000/openapi.json`
    - Canonical Health Check: `http://localhost:8000/api/v1/health`
    - Canonical Demo Reset: `http://localhost:8000/api/v1/demo/reset` (POST)
+   - Business Security Graph: `http://localhost:8000/api/v1/graph` (GET)
+   - Attack Path Traversal: `http://localhost:8000/api/v1/attack-paths` (GET)
 
 ---
 
