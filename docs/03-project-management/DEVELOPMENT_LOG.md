@@ -247,3 +247,48 @@ Establish the collaboration foundation with Claude Code (Developer B) and implem
 ### Next Steps
 - Push branch `backend/TSK-003-foundation` to GitHub origin.
 - Open pull request targeting `integration`.
+
+
+---
+
+## 2026-11-15 — Session 5: Developer A — TSK-002 Synthetic SaaS Fixtures & One-Click Reset API
+
+### Objective
+Implement deterministic synthetic SaaS scenario restoration, isolated runtime workspace management, scoped SQLite WAL database reseeding, and the canonical reset endpoint `POST /api/v1/demo/reset` on stacked branch `backend/TSK-002-demo-reset`.
+
+### Work Performed
+1. **Branch Management:**
+   - Verified that TSK-003 exists as remote branch `origin/backend/TSK-003-foundation` (unmerged into `integration`).
+   - Created and switched to stacked feature branch `backend/TSK-002-demo-reset` based on `backend/TSK-003-foundation`.
+2. **Architectural Decision Acceptance (ADR-005):**
+   - Exercised delegated architectural authority to accept ADR-005 (SQLite in WAL Mode + foreign keys enabled) for Hackathon MVP.
+   - Updated `DECISIONS.md` to `ACCEPTED`, documenting zero-daemon resilience, concurrent read scalability, and sub-second reset capability.
+3. **Database Configuration & Models:**
+   - Updated `app/database/session.py` with SQLite connection event listener enforcing `PRAGMA journal_mode=WAL;` and `PRAGMA foreign_keys=ON;`.
+   - Implemented `verify_sqlite_wal(db)` function empirically verifying WAL mode.
+   - Authored SQLAlchemy 2.0 entity models in `app/models/entities.py` (`AssetModel`, `FindingModel`, `RelationshipModel`, `AttackPathModel`) with scoped `is_demo: bool` isolation flags.
+4. **Synthetic SaaS Environment & Provider (`app/demo/provider.py`):**
+   - Maintained `data/demo/mock_saas/` as the immutable baseline fixture set (`staging.env`, `iam_staging.tf`, `buckets.json`).
+   - Implemented runtime directory isolation at `data/runtime/demo_workspace/mock_saas/` with path-confinement checks preventing traversal attacks.
+   - Built `DemoScenarioProvider`:
+     - Validates canonical scenario manifest in `data/demo/scenario.json` and enforces referential integrity.
+     - Restores runtime filesystem copy cleanly from baseline.
+     - Performs scoped transactional database cleanup (`is_demo == True`) and reseeding without touching live records.
+     - Labels all synthetic findings with explicit `SIMULATED_DEMO` provenance.
+5. **FastAPI Reset Endpoint Implementation (`app/api/v1/endpoints/demo.py`):**
+   - Implemented `POST /api/v1/demo/reset` returning dedicated `DemoResetResponse`.
+   - Enforced operating mode guard (rejects calls if running in `LIVE_ASSESSMENT_MODE`).
+   - Updated `contracts/openapi/openapi.yaml` to declare `DemoResetResponse` and include `SIMULATED_DEMO` in finding provenance.
+6. **Testing & Benchmark Verification:**
+   - Authored comprehensive test suites: `test_demo_provider.py`, `test_filesystem_reset.py`, `test_database_reset.py`, and `test_demo_endpoint.py`.
+   - Measured actual reset execution time: **22.60ms average** across 5 runs (well under the 1000ms SLA).
+   - Verified idempotency and non-demo record protection.
+
+### Tests Executed & Actual Results
+- Command: `python -m pytest apps/backend/tests -v`
+- Result: **25 passed in 0.84s** (100% pass rate, 0 warnings).
+
+### Next Steps
+- Push stacked branch `backend/TSK-002-demo-reset` to origin.
+- Prepare PR targeting `backend/TSK-003-foundation` (or `integration` upon merge).
+- Generate autonomous prompt for TSK-005.

@@ -194,7 +194,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssessmentStatus'
+                $ref: '#/components/schemas/DemoResetResponse'
 
 components:
   schemas:
@@ -284,7 +284,7 @@ components:
           type: number
         provenance:
           type: string
-          enum: [OBSERVED, INFERRED, SIMULATED]
+          enum: [OBSERVED, INFERRED, SIMULATED, SIMULATED_DEMO]
         location:
           type: object
           properties:
@@ -430,5 +430,49 @@ components:
           type: string
           format: date-time
         completedAt:
+          type: string
+          format: date-time
+
+    DemoResetResponse:
+      type: object
+      required:
+        - status
+        - scenarioId
+        - mode
+        - message
+        - assetsCount
+        - findingsCount
+        - relationshipsCount
+        - attackPathsCount
+        - runtimeWorkspace
+        - durationMs
+        - walVerified
+        - resetAt
+      properties:
+        status:
+          type: string
+          enum: [RESET_SUCCESSFUL, RESET_FAILED]
+        scenarioId:
+          type: string
+        mode:
+          type: string
+          enum: [DEMO_MODE]
+        message:
+          type: string
+        assetsCount:
+          type: integer
+        findingsCount:
+          type: integer
+        relationshipsCount:
+          type: integer
+        attackPathsCount:
+          type: integer
+        runtimeWorkspace:
+          type: string
+        durationMs:
+          type: number
+        walVerified:
+          type: boolean
+        resetAt:
           type: string
           format: date-time
