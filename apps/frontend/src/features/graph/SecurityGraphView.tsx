@@ -11,6 +11,7 @@ import { useSourceData } from '@/hooks/useSourceData';
 import { indexById } from '@/lib/utils/format';
 import type { AttackPath, DigitalAsset, SecurityFinding, SecurityGraph } from '@/types';
 import { GraphCanvas, GraphLegend } from './GraphCanvas';
+import { pathHighlight } from './model';
 import { NodeInspector } from './NodeInspector';
 
 interface GraphBundle {
@@ -21,32 +22,17 @@ interface GraphBundle {
   paths: AttackPath[];
 }
 
-/** Display-only: which nodes/edges belong to a path, using the ids the backend supplied. */
-function pathHighlight(graph: SecurityGraph, path: AttackPath | undefined) {
-  const nodes = new Set<string>();
-  const edges = new Set<string>();
-  if (!path) return { nodes, edges };
-  for (const step of path.steps) {
-    nodes.add(step.assetId);
-    if (step.findingId) nodes.add(step.findingId);
-  }
-  const assetIds = new Set(path.steps.map((s) => s.assetId));
-  for (const edge of graph.edges) {
-    // Highlight the hops between consecutive path assets (not the finding attachments).
-    if (assetIds.has(edge.source) && assetIds.has(edge.target)) edges.add(edge.id);
-  }
-  return { nodes, edges };
-}
-
 function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
   const { source } = useDataSource();
   const { graph, assets, findings, paths } = bundle;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showPath, setShowPath] = useState(false);
+  const [pathId, setPathId] = useState<string | null>(null);
 
   const assetIndex = useMemo(() => indexById(assets), [assets]);
   const findingIndex = useMemo(() => indexById(findings), [findings]);
-  const activePath = paths.find((p) => p.status === 'ACTIVE') ?? paths[0];
+  const activePath =
+    paths.find((p) => p.id === pathId) ?? paths.find((p) => p.status === 'ACTIVE') ?? paths[0];
   const highlight = useMemo(
     () => pathHighlight(graph, showPath ? activePath : undefined),
     [graph, activePath, showPath],
@@ -64,7 +50,7 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <Panel aria-labelledby="graph-title">
         <PanelHeader
           id="graph-title"
@@ -89,7 +75,38 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
           }
         />
         <div className="space-y-3 p-4">
-          <GraphCanvas graph={graph} selectedId={selectedId} onSelect={setSelectedId} highlight={highlight} origin={source.origin} />
+          {paths.length > 1 && (
+            <div role="tablist" aria-label="Attack paths" className="flex flex-wrap gap-2">
+              {paths.map((p) => (
+                <button
+                  key={p.id}
+                  role="tab"
+                  type="button"
+                  aria-selected={p.id === activePath?.id}
+                  onClick={() => {
+                    setPathId(p.id);
+                    setShowPath(true);
+                  }}
+                  className={
+                    p.id === activePath?.id
+                      ? 'rounded-md border border-signal/50 bg-signal/10 px-3 py-1.5 text-xs font-medium text-signal'
+                      : 'rounded-md border border-line-strong bg-ink-850 px-3 py-1.5 text-xs font-medium text-fg-muted hover:text-fg'
+                  }
+                >
+                  {p.title}
+                </button>
+              ))}
+            </div>
+          )}
+          <GraphCanvas
+            graph={graph}
+            assets={assets}
+            findings={findings}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            highlight={highlight}
+            origin={source.origin}
+          />
           <GraphLegend origin={source.origin} />
           {showPath && activePath && (
             <p className="rounded-md border border-line bg-ink-900 px-3 py-2 text-xs leading-relaxed text-fg-soft">

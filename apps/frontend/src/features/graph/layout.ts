@@ -1,23 +1,26 @@
-import type { GraphEdge, GraphNode, SecurityGraph } from '@/types';
+import type { GraphNode, SecurityGraph } from '@/types';
 
 /**
- * Deterministic layered layout for the graph preview.
+ * Deterministic layered layout (positions only; no security logic).
  *
- * The API contract returns nodes and edges without coordinates, so the presentation layer arranges
- * them: non-finding nodes flow left to right by dependency depth, and each finding sits directly
- * beneath the node that exposes it. This is layout only; no security logic.
+ * The API contract returns nodes and edges without coordinates, so the presentation layer arranges them:
+ * non-finding nodes flow left to right by dependency depth, and each finding hangs directly beneath the
+ * node that exposes it. The same input always yields the same output (no randomness, no physics), so the
+ * initial view is stable across reloads and in tests. Users can then drag nodes freely.
  */
 
-export const NODE_W = 188;
-export const NODE_H = 78;
-const COL_GAP = 112;
-const FINDING_GAP = 76;
-const ROW_GAP = 56;
-const PAD = 36;
-const MIN_HEIGHT = 340;
+// Sized so a finding card (header, 2-line title, badge row, asset line) fits without clipping.
+export const NODE_W = 224;
+export const NODE_H = 148;
+const COL_GAP = 104;
+const FINDING_GAP = 64;
+const ROW_GAP = 44;
+const PAD = 28;
+const MIN_HEIGHT = 300;
 
 export interface PositionedNode {
   node: GraphNode;
+  /** Top-left corner, in flow coordinates. */
   x: number;
   y: number;
 }
@@ -100,43 +103,4 @@ export function layoutGraph(graph: SecurityGraph): GraphLayout {
     width: PAD * 2 + (maxCol + 1) * NODE_W + maxCol * COL_GAP,
     height: Math.max(MIN_HEIGHT, maxBottom + PAD),
   };
-}
-
-export interface EdgeGeometry {
-  edge: GraphEdge;
-  path: string;
-  /** Label anchor (midpoint). */
-  mx: number;
-  my: number;
-}
-
-/** Cubic path between two positioned nodes, exiting/entering on the facing sides. */
-export function edgeGeometry(edge: GraphEdge, layout: GraphLayout): EdgeGeometry | null {
-  const a = layout.byId[edge.source];
-  const b = layout.byId[edge.target];
-  if (!a || !b) return null;
-
-  const sameColumn = Math.abs(a.x - b.x) < NODE_W / 2;
-  let x1: number, y1: number, x2: number, y2: number, path: string;
-
-  if (sameColumn) {
-    const down = b.y >= a.y;
-    x1 = a.x + NODE_W / 2;
-    x2 = b.x + NODE_W / 2;
-    y1 = down ? a.y + NODE_H : a.y;
-    y2 = down ? b.y : b.y + NODE_H;
-    const bend = (y2 - y1) / 2;
-    path = `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`;
-  } else {
-    const right = b.x >= a.x;
-    x1 = right ? a.x + NODE_W : a.x;
-    x2 = right ? b.x : b.x + NODE_W;
-    y1 = a.y + NODE_H / 2;
-    y2 = b.y + NODE_H / 2;
-    const bend = Math.max(40, Math.abs(x2 - x1) / 2);
-    const dir = right ? 1 : -1;
-    path = `M ${x1} ${y1} C ${x1 + dir * bend} ${y1}, ${x2 - dir * bend} ${y2}, ${x2} ${y2}`;
-  }
-
-  return { edge, path, mx: (x1 + x2) / 2, my: (y1 + y2) / 2 };
 }

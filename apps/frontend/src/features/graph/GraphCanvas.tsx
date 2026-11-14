@@ -1,196 +1,211 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertOctagon, FlaskConical, Target, UserCog } from 'lucide-react';
-import { AssetIcon } from '@/components/common/AssetIcon';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  type NodeChange,
+  type NodeTypes,
+  type EdgeTypes,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { FlaskConical } from 'lucide-react';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { SEVERITY_STYLE } from '@/lib/utils/severity';
-import { cn } from '@/lib/utils/cn';
-import { formatPercent, humanizeRelationship } from '@/lib/utils/format';
-import type { AssetType, DataOrigin, GraphNode, SecurityGraph } from '@/types';
-import { edgeGeometry, layoutGraph, NODE_H, NODE_W } from './layout';
+import type { DataOrigin, DigitalAsset, SecurityFinding, SecurityGraph } from '@/types';
+import { AttackEdge } from './edges/AttackEdge';
+import {
+  buildFlowEdges,
+  buildFlowNodes,
+  describeGraph,
+  EDGE_COLOR,
+  EDGE_TYPE_RELATIONSHIP,
+  NODE_TYPE_ASSET,
+  NODE_TYPE_FINDING,
+  styleNodes,
+  type GraphFlowNode,
+  type Highlight,
+} from './model';
+import { AssetNode } from './nodes/AssetNode';
+import { FindingNode } from './nodes/FindingNode';
 
 /**
- * GraphCanvas: the replaceable rendering boundary for the Business Security Graph.
+ * GraphCanvas: the rendering boundary for the Business Security Graph, implemented with React Flow
+ * (ADR-006). `SecurityGraphView` and `NodeInspector` depend only on this props contract.
  *
- * ADR-006 (React Flow) is still PROPOSED, so this first preview is plain SVG + HTML. A future
- * React Flow implementation only has to honour this props contract; GraphView does not change.
+ * Capabilities: drag nodes, wheel/pinch zoom, pan, fit view, minimap, keyboard-focusable selectable nodes.
+ * Node dragging is cosmetic (positions only). Nothing here computes risk, paths or correlations.
  */
 export interface GraphCanvasProps {
   graph: SecurityGraph;
+  /** Display metadata for node cards. Missing entries degrade gracefully (the card shows less). */
+  assets: DigitalAsset[];
+  findings: SecurityFinding[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   /** Node ids and edge ids on the highlighted potential attack path (empty = no highlight). */
-  highlight: { nodes: ReadonlySet<string>; edges: ReadonlySet<string> };
+  highlight: Highlight;
   origin: DataOrigin;
 }
 
-function nodeAssetType(node: GraphNode): AssetType | undefined {
-  const value = node.data?.assetType;
-  return typeof value === 'string' ? (value as AssetType) : undefined;
+/** Stable references: React Flow warns (and re-mounts every node) if these are recreated per render. */
+const NODE_TYPES: NodeTypes = { [NODE_TYPE_ASSET]: AssetNode, [NODE_TYPE_FINDING]: FindingNode };
+const EDGE_TYPES: EdgeTypes = { [EDGE_TYPE_RELATIONSHIP]: AttackEdge };
+
+const FIT_OPTIONS = { padding: 0.12, maxZoom: 1.1, duration: 350 } as const;
+/** Compact: the default 200x150 minimap covers a large share of a laptop-size canvas. */
+const MINIMAP_STYLE = { width: 120, height: 80 } as const;
+
+/** Stable identity for the input graph: rebuild structure (and reset drag positions) only when it changes. */
+function graphSignature(graph: SecurityGraph): string {
+  return `${graph.updatedAt}|${graph.nodes.map((n) => n.id).join(',')}|${graph.edges.map((e) => e.id).join(',')}`;
 }
 
-const KIND_LABEL: Record<GraphNode['type'], string> = {
-  ASSET: 'Asset',
-  FINDING: 'Finding',
-  IDENTITY: 'Identity',
-  EXPLOIT_TARGET: 'Target asset',
-};
-
-/** Short on-canvas kind label so it never truncates at the compact node width. */
-const KIND_SHORT: Record<GraphNode['type'], string> = {
-  ASSET: 'Asset',
-  FINDING: 'Finding',
-  IDENTITY: 'Identity',
-  EXPLOIT_TARGET: 'Target',
-};
-
-function NodeGlyph({ node }: { node: GraphNode }) {
-  if (node.type === 'FINDING') return <AlertOctagon className="h-4 w-4" aria-hidden />;
-  if (node.type === 'IDENTITY') return <UserCog className="h-4 w-4" aria-hidden />;
-  if (node.type === 'EXPLOIT_TARGET') return <Target className="h-4 w-4" aria-hidden />;
-  return <AssetIcon type={nodeAssetType(node)} className="h-4 w-4" />;
+function minimapColor(node: GraphFlowNode): string {
+  const severity = node.data.severity;
+  return severity ? SEVERITY_STYLE[severity].hex : '#2A3C5E';
 }
 
-/** Scale factor so the whole graph fits the container width (never enlarges past 1:1). */
-function useFitScale(contentWidth: number) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const update = () => {
-      const available = el.clientWidth;
-      if (available > 0) setScale(Math.min(1, available / contentWidth));
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [contentWidth]);
-  return { ref, scale };
-}
+function CanvasInner({ graph, assets, findings, selectedId, onSelect, highlight, origin }: GraphCanvasProps) {
+  const reducedMotion = useReducedMotion();
+  const { fitView } = useReactFlow();
 
-export function GraphCanvas({ graph, selectedId, onSelect, highlight, origin }: GraphCanvasProps) {
-  const layout = useMemo(() => layoutGraph(graph), [graph]);
-  const { ref, scale } = useFitScale(layout.width);
-  const edges = useMemo(
-    () => graph.edges.map((edge) => edgeGeometry(edge, layout)).filter((g): g is NonNullable<typeof g> => g !== null),
-    [graph.edges, layout],
+  // Structure (ids, positions, display metadata) -- rebuilt only when the graph or its metadata change.
+  const structural = useMemo(
+    () => buildFlowNodes(graph, assets, findings, origin),
+    [graph, assets, findings, origin],
   );
-  const simulated = origin === 'SIMULATED_DEMO';
-  const anyHighlight = highlight.nodes.size > 0;
+
+  // Dragged positions live here so selection / highlight changes never snap nodes back.
+  const [dragged, setDragged] = useState<Record<string, { x: number; y: number }>>({});
+  const signature = graphSignature(graph);
+  useEffect(() => setDragged({}), [signature]);
+
+  const positioned = useMemo(
+    () => structural.map((n) => (dragged[n.id] ? { ...n, position: dragged[n.id] } : n)),
+    [structural, dragged],
+  );
+
+  const view = useMemo(() => ({ selectedId, highlight, reducedMotion }), [selectedId, highlight, reducedMotion]);
+  const nodes = useMemo(() => styleNodes(positioned, view), [positioned, view]);
+  // Edges are routed from the initial layout so a drag does not flip which side an edge leaves from.
+  const edges = useMemo(() => buildFlowEdges(graph, structural, view), [graph, structural, view]);
+
+  // Latest selection, readable inside the stable change handler without re-creating it.
+  const selectedRef = useRef(selectedId);
+  selectedRef.current = selectedId;
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<GraphFlowNode>[]) => {
+      const moves = changes.filter((c) => c.type === 'position' && c.position);
+      if (moves.length > 0) {
+        setDragged((prev) => {
+          const next = { ...prev };
+          for (const change of moves) if (change.type === 'position' && change.position) next[change.id] = change.position;
+          return next;
+        });
+      }
+
+      // Selection is owned by the parent. React Flow reports pointer AND keyboard (Enter/Space/Escape)
+      // selection here; mouse clicks additionally arrive via onNodeClick. Mirroring it keeps keyboard
+      // users able to select nodes (onNodeClick alone would never fire for them).
+      const selects = changes.filter((c) => c.type === 'select');
+      const picked = selects.filter((c) => c.type === 'select' && c.selected).map((c) => c.id);
+      if (picked.length > 0) {
+        onSelect(picked[picked.length - 1]);
+      } else if (selects.some((c) => c.id === selectedRef.current)) {
+        onSelect(null); // Escape (or RF deselecting the current node) with nothing newly selected
+      }
+    },
+    [onSelect],
+  );
+
+  // Focus the graph on the highlighted path (but keep the whole graph in context via padding).
+  const highlightKey = useMemo(() => [...highlight.nodes].sort().join('|'), [highlight.nodes]);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const ids = [...highlight.nodes];
+    const duration = reducedMotion ? 0 : FIT_OPTIONS.duration;
+    void fitView(
+      ids.length > 0
+        ? { nodes: ids.map((id) => ({ id })), padding: 0.45, maxZoom: 1, duration }
+        : { padding: FIT_OPTIONS.padding, maxZoom: FIT_OPTIONS.maxZoom, duration },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightKey]);
+
+  const summary = useMemo(() => describeGraph(graph), [graph]);
 
   return (
     <div
-      ref={ref}
-      className="bg-grid overflow-hidden rounded-md border border-line bg-ink-950"
       data-testid="graph-canvas"
-      data-scale={scale.toFixed(2)}
-      style={{ height: layout.height * scale }}
-      onClick={() => onSelect(null)}
+      data-node-count={graph.nodes.length}
+      data-edge-count={graph.edges.length}
+      className="h-[440px] w-full overflow-hidden rounded-md border border-line bg-ink-950 md:h-[460px]"
+      role="group"
+      aria-label={`Business Security Graph. ${summary} Select a node for details.`}
     >
-      <div
-        className="relative origin-top-left"
-        style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}
+      <ReactFlow<GraphFlowNode>
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        onNodesChange={onNodesChange}
+        onNodeClick={(_, node) => onSelect(node.id === selectedId ? null : node.id)}
+        onPaneClick={() => onSelect(null)}
+        fitView
+        fitViewOptions={FIT_OPTIONS}
+        minZoom={0.25}
+        maxZoom={2}
+        nodesDraggable
+        nodesConnectable={false}
+        edgesFocusable={false}
+        elementsSelectable
+        nodesFocusable
+        zoomOnDoubleClick={false}
+        // React Flow asks non-Pro users to keep its attribution (MIT licence, no Pro subscription here), so it
+        // is shown, tucked bottom-centre where it does not collide with the controls or the minimap.
+        attributionPosition="bottom-center"
+        colorMode="dark"
+        defaultEdgeOptions={{ zIndex: 0 }}
+        aria-label="Security graph canvas"
       >
-        <svg width={layout.width} height={layout.height} className="absolute inset-0" role="presentation">
-          <defs>
-            <marker id="arrow-verified" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#5B85FF" />
-            </marker>
-            <marker id="arrow-inferred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#38BDF8" />
-            </marker>
-            <marker id="arrow-path" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#F0455A" />
-            </marker>
-          </defs>
-
-          {edges.map(({ edge, path, mx, my }) => {
-            const onPath = highlight.edges.has(edge.id);
-            const dim = anyHighlight && !onPath;
-            const stroke = onPath ? '#F0455A' : edge.inferred ? '#38BDF8' : '#5B85FF';
-            const marker = onPath ? 'arrow-path' : edge.inferred ? 'arrow-inferred' : 'arrow-verified';
-            const label = humanizeRelationship(edge.relationship);
-            const sublabel = edge.inferred
-              ? `inferred${edge.confidence != null ? ` · ${formatPercent(edge.confidence)}` : ''}`
-              : 'verified';
-            return (
-              <g key={edge.id} opacity={dim ? 0.28 : 1} data-edge-id={edge.id} data-inferred={edge.inferred}>
-                <path
-                  d={path}
-                  fill="none"
-                  stroke={stroke}
-                  strokeWidth={onPath ? 2.5 : 1.75}
-                  strokeDasharray={edge.inferred ? '7 5' : undefined}
-                  markerEnd={`url(#${marker})`}
-                  className={cn(edge.inferred && 'edge-flow')}
-                />
-                <text
-                  x={mx}
-                  y={my - 16}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill={onPath ? '#F59AA6' : '#BAC6DB'}
-                  stroke="#05080F"
-                  strokeWidth="4"
-                  paintOrder="stroke"
-                  className="select-none font-sans"
-                >
-                  <tspan x={mx}>{label}</tspan>
-                  <tspan x={mx} dy="13" fontSize="10" fill={edge.inferred ? '#38BDF8' : '#8FA9FF'}>
-                    {sublabel}
-                  </tspan>
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-
-        {layout.nodes.map(({ node, x, y }) => {
-          const selected = selectedId === node.id;
-          const onPath = highlight.nodes.has(node.id);
-          const dim = anyHighlight && !onPath;
-          const isFinding = node.type === 'FINDING';
-          const sev = node.severity ? SEVERITY_STYLE[node.severity] : null;
-          return (
-            <button
-              key={node.id}
-              type="button"
-              data-node-id={node.id}
-              data-node-type={node.type}
-              aria-pressed={selected}
-              aria-label={`${KIND_LABEL[node.type]}: ${node.label}${sev ? `, ${sev.label} severity` : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(selected ? null : node.id);
-              }}
-              style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
-              className={cn(
-                'absolute flex flex-col justify-between overflow-hidden rounded-md border px-3 py-2.5 text-left transition-all',
-                isFinding ? 'border-dashed bg-ink-900' : 'bg-ink-850',
-                selected ? 'border-signal ring-2 ring-signal/40' : isFinding ? 'border-sev-critical/35 hover:border-sev-critical/70' : 'border-line-strong hover:border-signal/60',
-                dim && 'opacity-40',
-              )}
-            >
-              {sev && <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', sev.bar)} />}
-              <span className="flex items-center gap-1.5 pl-1 text-2xs uppercase text-fg-muted">
-                <span className={cn('shrink-0', isFinding ? 'text-sev-critical' : 'text-signal')}>
-                  <NodeGlyph node={node} />
-                </span>
-                <span className="whitespace-nowrap">{KIND_SHORT[node.type]}</span>
-                {simulated && (
-                  <span title="Simulated demo data" className="shrink-0 text-sim">
-                    <FlaskConical className="h-3 w-3" aria-hidden />
-                    <span className="sr-only">Simulated</span>
-                  </span>
-                )}
-                {sev && <span className={cn('ml-auto shrink-0 font-semibold', sev.text)}>{sev.label}</span>}
-              </span>
-              <span className="line-clamp-2 pl-1 text-[13px] font-medium leading-snug text-fg">{node.label}</span>
-            </button>
-          );
-        })}
-      </div>
+        <Background variant={BackgroundVariant.Lines} gap={32} color="rgba(56,189,248,0.07)" lineWidth={1} />
+        <Controls
+          position="bottom-left"
+          showInteractive={false}
+          fitViewOptions={FIT_OPTIONS}
+          aria-label="Graph view controls"
+        />
+        <MiniMap
+          position="bottom-right"
+          pannable
+          zoomable
+          style={MINIMAP_STYLE}
+          nodeColor={minimapColor}
+          nodeStrokeWidth={0}
+          maskColor="rgba(5,8,15,0.72)"
+          ariaLabel="Graph minimap"
+          className="!hidden sm:!block"
+        />
+      </ReactFlow>
     </div>
+  );
+}
+
+/** React Flow needs its provider so `useReactFlow` (fit view on path focus) works inside the canvas. */
+export function GraphCanvas(props: GraphCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <CanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }
 
@@ -208,19 +223,19 @@ export function GraphLegend({ origin }: { origin: DataOrigin }) {
       </li>
       <li className="flex items-center gap-2">
         <svg width="26" height="8" aria-hidden>
-          <line x1="0" y1="4" x2="26" y2="4" stroke="#5B85FF" strokeWidth="2" />
+          <line x1="0" y1="4" x2="26" y2="4" stroke={EDGE_COLOR.verified} strokeWidth="2" />
         </svg>
         Verified relationship
       </li>
       <li className="flex items-center gap-2">
         <svg width="26" height="8" aria-hidden>
-          <line x1="0" y1="4" x2="26" y2="4" stroke="#38BDF8" strokeWidth="2" strokeDasharray="5 3" />
+          <line x1="0" y1="4" x2="26" y2="4" stroke={EDGE_COLOR.inferred} strokeWidth="2" strokeDasharray="5 3" />
         </svg>
         Inferred relationship
       </li>
       <li className="flex items-center gap-2">
         <svg width="26" height="8" aria-hidden>
-          <line x1="0" y1="4" x2="26" y2="4" stroke="#F0455A" strokeWidth="2.5" strokeDasharray="5 3" />
+          <line x1="0" y1="4" x2="26" y2="4" stroke={EDGE_COLOR.path} strokeWidth="2.5" strokeDasharray="5 3" />
         </svg>
         Potential attack path
       </li>
