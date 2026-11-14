@@ -1,38 +1,76 @@
-/* apps/frontend/src/styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 25%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply m-0 bg-ink-950 font-sans text-sm text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  ::selection {
+    background: rgba(56, 189, 248, 0.28);
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-signal/70 ring-offset-2 ring-offset-ink-950;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3c5e transparent;
+  }
+
+  code,
+  kbd,
+  pre {
+    @apply font-mono;
   }
 }
 
-body {
-  background-color: #0B0F19;
-  color: #F8FAFC;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
+@layer components {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Faint engineering grid used behind the graph canvas only. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(56, 189, 248, 0.045) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded bg-ink-700/70;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    animation: shimmer 1.4s infinite;
+  }
+}
+
+/* Marching-dash motion on inferred edges. Meaning is ALSO carried by dash style, never motion alone. */
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.edge-flow {
+  animation: edge-flow 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-flow,
+  .skeleton::after,
+  .animate-fade-up,
+  .animate-slide-in {
+    animation: none;
+  }
 }
