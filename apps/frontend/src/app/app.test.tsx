@@ -63,7 +63,8 @@ describe('offline usability and preview provenance', () => {
   it('stays usable in local preview when the backend is offline', async () => {
     stubOffline();
     renderApp('/');
-    expect(await screen.findByText('saas-core-api')).toBeInTheDocument();
+    // the asset appears in both the path preview and the inventory list
+    expect((await screen.findAllByText('saas-core-api')).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Reset demo scenario/ })).toBeEnabled();
     expect(screen.getByRole('link', { name: /Business Security Graph/ })).toBeInTheDocument();
   });
@@ -176,12 +177,51 @@ describe('API failures produce visible, safe error states', () => {
   });
 });
 
+/** Open the reset dialog from the command bar and confirm it. In API mode this is the ONLY way a POST is sent. */
+async function resetViaDialog(user: ReturnType<typeof userEvent.setup>, confirmName = 'Reset demo state') {
+  await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+  const dialog = await screen.findByRole('alertdialog');
+  await user.click(within(dialog).getByRole('button', { name: confirmName }));
+}
+const postCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+  fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+
 describe('demo reset never shows false success', () => {
+  it('asks for confirmation first and sends NOTHING until it is confirmed', async () => {
+    const fetchMock = stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody()) : json(HEALTHY)));
+    const user = userEvent.setup();
+    renderApp('/', 'api');
+    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reset the demo scenario?' });
+    expect(dialog).toHaveTextContent(/synthetic demo scenario/i);
+    expect(dialog).toHaveTextContent(/discarded/i);
+    expect(postCalls(fetchMock)).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(postCalls(fetchMock)).toHaveLength(0);
+    expect(screen.queryByTestId('reset-feedback')).not.toBeInTheDocument();
+  });
+
+  it('PREVIEW MODE never sends a request, says so, and is not green', async () => {
+    const fetchMock = stubOffline();
+    const user = userEvent.setup();
+    renderApp('/'); // preview
+    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reset the local preview?' });
+    expect(dialog).toHaveTextContent(/no request will be sent to the backend/i);
+    await user.click(within(dialog).getByRole('button', { name: 'Got it' }));
+    const feedback = await screen.findByTestId('reset-feedback');
+    expect(feedback).toHaveAttribute('data-phase', 'preview');
+    expect(feedback).toHaveTextContent(/no request was sent and nothing was reset/i);
+    expect(feedback).not.toHaveTextContent(/confirmed/i);
+    expect(postCalls(fetchMock)).toHaveLength(0);
+  });
+
   it('shows an error and NO success when the backend is unreachable', async () => {
     stubOffline();
     const user = userEvent.setup();
-    renderApp('/');
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    renderApp('/', 'api');
+    await resetViaDialog(user);
     const feedback = await screen.findByTestId('reset-feedback');
     expect(feedback).toHaveAttribute('data-phase', 'error');
     expect(feedback).toHaveTextContent(/nothing was reset/i);
@@ -191,8 +231,8 @@ describe('demo reset never shows false success', () => {
   it('shows "not available yet" when the reset endpoint is not implemented (404)', async () => {
     stubFetch((_url, init) => (init?.method === 'POST' ? json({}, 404) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    renderApp('/', 'api');
+    await resetViaDialog(user);
     const feedback = await screen.findByTestId('reset-feedback');
     expect(feedback).toHaveAttribute('data-phase', 'error');
     expect(feedback).toHaveTextContent(/not available on the backend yet/i);
@@ -201,22 +241,23 @@ describe('demo reset never shows false success', () => {
   it('shows an error for a 2xx reply that is not a valid reset response', async () => {
     stubFetch((_url, init) => (init?.method === 'POST' ? json({ ok: true }) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    renderApp('/', 'api');
+    await resetViaDialog(user);
     expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'error');
   });
 
   it('shows success only after the backend returns a valid DemoResetResponse', async () => {
-    stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody()) : json(HEALTHY)));
+    const fetchMock = stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody()) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
+    renderApp('/', 'api');
     expect(screen.queryByTestId('reset-feedback')).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    await resetViaDialog(user);
     const feedback = await screen.findByTestId('reset-feedback');
     expect(feedback).toHaveAttribute('data-phase', 'success');
     expect(feedback).toHaveTextContent('Backend confirmed the reset: 3 assets, 2 findings, 2 relationships, 1 attack path');
-    // never echoes host paths from the response
-    expect(feedback).not.toHaveTextContent('runtime');
+    expect(feedback).not.toHaveTextContent('runtime'); // never echoes host paths from the response
+    expect(postCalls(fetchMock)).toHaveLength(1);
+    expect(String(postCalls(fetchMock)[0][0])).toBe('http://localhost:8000/api/v1/demo/reset');
   });
 
   it.each<[string, Record<string, unknown>]>([
@@ -228,8 +269,8 @@ describe('demo reset never shows false success', () => {
   ])('never shows green success for a 2xx reset with %s', async (_name, patch) => {
     stubFetch((_url, init) => (init?.method === 'POST' ? json(resetBody(patch)) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    renderApp('/', 'api');
+    await resetViaDialog(user);
     const feedback = await screen.findByTestId('reset-feedback');
     expect(feedback).toHaveAttribute('data-phase', 'error');
     expect(feedback).toHaveTextContent(/nothing was reset/i);
@@ -240,23 +281,40 @@ describe('demo reset never shows false success', () => {
     const legacy = { id: 'run-1', mode: 'DEMO_MODE', status: 'completed', currentStepMessage: 'ok' };
     stubFetch((_url, init) => (init?.method === 'POST' ? json(legacy) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
-    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    renderApp('/', 'api');
+    await resetViaDialog(user);
     expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'error');
   });
 
-  it('disables the button and shows progress while the reset is in flight', async () => {
+  it('disables the control and blocks a second submit while the reset is in flight', async () => {
     let release: (r: Response) => void = () => {};
-    stubFetch((_url, init) => (init?.method === 'POST' ? new Promise<Response>((res) => (release = res)) : json(HEALTHY)));
+    const fetchMock = stubFetch((_url, init) => (init?.method === 'POST' ? new Promise<Response>((res) => (release = res)) : json(HEALTHY)));
     const user = userEvent.setup();
-    renderApp('/');
-    const button = await screen.findByRole('button', { name: /Reset demo scenario/ });
-    await user.click(button);
-    await waitFor(() => expect(button).toBeDisabled());
-    expect(button).toHaveTextContent('Resetting');
+    renderApp('/', 'api');
+    await user.click(await screen.findByRole('button', { name: /Reset demo scenario/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Reset demo state' }));
+    await waitFor(() => expect(within(screen.getByRole('alertdialog')).getByRole('button', { name: /Resetting/ })).toBeDisabled());
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /Resetting/ }));
+    await user.keyboard('{Escape}'); // cannot abandon an in-flight request's dialog
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.queryByTestId('reset-feedback')).not.toBeInTheDocument();
     release(json(resetBody()));
-    await waitFor(() => expect(button).toBeEnabled());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(postCalls(fetchMock)).toHaveLength(1);
+  });
+
+  it('a failed attempt after a confirmed one is shown as a failure', async () => {
+    let ok = true;
+    stubFetch((_url, init) => (init?.method === 'POST' ? (ok ? json(resetBody()) : json({}, 500)) : json(HEALTHY)));
+    const user = userEvent.setup();
+    renderApp('/', 'api');
+    await resetViaDialog(user);
+    expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'success');
+    ok = false;
+    await user.click(screen.getByRole('button', { name: 'Dismiss message' }));
+    await resetViaDialog(user);
+    expect(await screen.findByTestId('reset-feedback')).toHaveAttribute('data-phase', 'error');
   });
 });
 
@@ -290,9 +348,14 @@ describe('finding evidence and remediation honesty', () => {
 
   it('labels the attack path as inferred and not a confirmed exploit', async () => {
     stubOffline();
+    const user = userEvent.setup();
     renderApp('/paths');
+    // the statement is on the list itself, before anything is opened
     expect(await screen.findByText(/Inferred potential path, not a confirmed exploit/)).toBeInTheDocument();
-    expect(screen.getAllByTestId('path-step')).toHaveLength(3);
+    await user.click(await screen.findByTestId('path-row'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Inferred potential path, not a confirmed exploit/)).toBeInTheDocument();
+    expect(within(dialog).getAllByTestId('path-step')).toHaveLength(3);
   });
 
   it('distinguishes inferred from verified relationships in the graph', async () => {
@@ -336,12 +399,15 @@ describe('finding evidence and remediation honesty', () => {
     const user = userEvent.setup();
     renderApp('/remediation');
     await screen.findByRole('form', { name: 'Human approval' });
-    const submit = screen.getByRole('button', { name: /Preview approval/ });
+    const submit = screen.getByRole('button', { name: /Review \(preview\)/ });
     expect(submit).toBeDisabled();
 
     await user.type(screen.getByLabelText('Approver'), 'dev-b');
     await user.click(screen.getByLabelText(/I have reviewed the proposed patch/));
     await user.click(submit);
+    // approval is a deliberate two-step: nothing is sent until the dialog is confirmed
+    const dialog = await screen.findByRole('alertdialog', { name: 'Preview this approval?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Got it' }));
 
     expect(await screen.findByTestId('approval-preview-notice')).toHaveTextContent(/No request was sent and no remediation was applied/);
     expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'POST')).toBe(false);

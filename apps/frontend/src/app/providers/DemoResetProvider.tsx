@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, isDemoResetResponse, resetDemo } from '@/lib/api/client';
+import { parseApiDate } from '@/lib/utils/format';
 import { useBackendStatus } from './BackendStatusProvider';
 import { useDataSource } from './DataSourceProvider';
 
@@ -8,8 +9,23 @@ import { useDataSource } from './DataSourceProvider';
  * pending : POST /demo/reset in flight
  * success : the backend answered 2xx with a valid body. This is the ONLY path to "success".
  * error   : the request failed; NOTHING was reset
+ * preview : preview mode. NO request was sent: the local fixtures are already the baseline, so there is nothing to
+ *           reset and nothing the backend could confirm. Never rendered as success.
  */
-export type ResetPhase = 'idle' | 'pending' | 'success' | 'error';
+export type ResetPhase = 'idle' | 'pending' | 'success' | 'error' | 'preview';
+
+/** The validated facts of the last backend-CONFIRMED reset (numbers and a time only; never host paths or text). */
+export interface ConfirmedReset {
+  scenarioId: string;
+  assetsCount: number;
+  findingsCount: number;
+  relationshipsCount: number;
+  attackPathsCount: number;
+  durationMs: number;
+  walVerified: boolean;
+  /** The backend's own `resetAt`, parsed as UTC. null if it could not be parsed. */
+  resetAt: Date | null;
+}
 
 export interface ResetState {
   phase: ResetPhase;
@@ -18,6 +34,8 @@ export interface ResetState {
   /** 'unavailable' means the backend does not implement the endpoint yet. */
   errorKind: ApiError['kind'] | null;
   at: Date | null;
+  /** Set only by a backend-confirmed reset; survives later failed attempts so "last reset" stays truthful. */
+  lastConfirmed: ConfirmedReset | null;
 }
 
 interface DemoResetValue extends ResetState {
@@ -25,7 +43,7 @@ interface DemoResetValue extends ResetState {
   dismiss: () => void;
 }
 
-const INITIAL: ResetState = { phase: 'idle', message: null, errorKind: null, at: null };
+const INITIAL: ResetState = { phase: 'idle', message: null, errorKind: null, at: null, lastConfirmed: null };
 
 const DemoResetContext = createContext<DemoResetValue | null>(null);
 
@@ -46,13 +64,29 @@ export function describeResetFailure(error: ApiError): string {
 export function DemoResetProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ResetState>(INITIAL);
   const { refresh } = useBackendStatus();
-  const { invalidate } = useDataSource();
+  const { invalidate, source } = useDataSource();
   const running = useRef(false);
+  const isPreview = source.origin === 'SIMULATED_DEMO';
 
   const reset = useCallback(async () => {
     if (running.current) return;
+
+    // PREVIEW MODE MUST NEVER TOUCH THE BACKEND. A reset is a real, state-changing request; sending it while the UI
+    // is showing local fixtures would silently alter (or fail against) a backend the user is not looking at, and the
+    // result could never be displayed truthfully. Preview data is already the deterministic baseline.
+    if (isPreview) {
+      setState((s) => ({
+        ...s,
+        phase: 'preview',
+        message: 'Preview mode: no request was sent and nothing was reset. The local preview data is already the baseline. Switch to Backend API to reset the real demo state.',
+        errorKind: null,
+        at: new Date(),
+      }));
+      return;
+    }
+
     running.current = true;
-    setState({ phase: 'pending', message: 'Resetting demo scenario...', errorKind: null, at: null });
+    setState((s) => ({ ...s, phase: 'pending', message: 'Resetting demo scenario...', errorKind: null, at: null }));
     try {
       const result = await resetDemo();
       // Defence in depth: resetDemo() already guarantees this, but the green state must never depend on a
@@ -69,18 +103,30 @@ export function DemoResetProvider({ children }: { children: ReactNode }) {
           `${result.attackPathsCount === 1 ? '' : 's'} restored in ${Math.round(result.durationMs)} ms.`,
         errorKind: null,
         at: new Date(),
+        lastConfirmed: {
+          scenarioId: result.scenarioId,
+          assetsCount: result.assetsCount,
+          findingsCount: result.findingsCount,
+          relationshipsCount: result.relationshipsCount,
+          attackPathsCount: result.attackPathsCount,
+          durationMs: result.durationMs,
+          walVerified: result.walVerified,
+          resetAt: parseApiDate(result.resetAt),
+        },
       });
       invalidate();
       refresh();
     } catch (e) {
       const error = e instanceof ApiError ? e : new ApiError('http', 'POST /demo/reset', 'Unexpected failure.');
-      setState({ phase: 'error', message: describeResetFailure(error), errorKind: error.kind, at: new Date() });
+      // A failed attempt must not erase the record of the last CONFIRMED reset.
+      setState((s) => ({ ...s, phase: 'error', message: describeResetFailure(error), errorKind: error.kind, at: new Date() }));
     } finally {
       running.current = false;
     }
-  }, [invalidate, refresh]);
+  }, [invalidate, refresh, isPreview]);
 
-  const dismiss = useCallback(() => setState(INITIAL), []);
+  // Dismissing a message clears the banner, never the record of the last confirmed reset.
+  const dismiss = useCallback(() => setState((s) => ({ ...INITIAL, lastConfirmed: s.lastConfirmed })), []);
 
   const value = useMemo<DemoResetValue>(() => ({ ...state, reset, dismiss }), [state, reset, dismiss]);
   return <DemoResetContext.Provider value={value}>{children}</DemoResetContext.Provider>;

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Crosshair, Network } from 'lucide-react';
+import { parsePathParam } from '@/features/attack-paths/pathModel';
 import { AsyncBoundary } from '@/components/common/AsyncBoundary';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState } from '@/components/common/States';
@@ -12,7 +13,7 @@ import { indexById } from '@/lib/utils/format';
 import type { AttackPath, DigitalAsset, SecurityFinding, SecurityGraph } from '@/types';
 import { GraphCanvas, GraphLegend } from './GraphCanvas';
 import { pathHighlight } from './model';
-import { NodeInspector } from './NodeInspector';
+import { EdgeInspector, NodeInspector } from './NodeInspector';
 
 interface GraphBundle {
   graph: SecurityGraph;
@@ -22,12 +23,25 @@ interface GraphBundle {
   paths: AttackPath[];
 }
 
-function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
+function GraphWorkspace({ bundle, requestedPathId }: { bundle: GraphBundle; requestedPathId: string | null }) {
   const { source } = useDataSource();
   const { graph, assets, findings, paths } = bundle;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showPath, setShowPath] = useState(false);
-  const [pathId, setPathId] = useState<string | null>(null);
+  // `?path=<id>` (from the investigation drawer's "Show on graph"): select and highlight exactly that path. If the id is
+  // not in the current data we say so rather than silently highlighting a different path.
+  const requested = requestedPathId ? paths.find((p) => p.id === requestedPathId) : undefined;
+  // A node and a relationship are never selected at the same time: picking one clears the other.
+  const [selectedId, setSelectedNode] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeState] = useState<string | null>(null);
+  const setSelectedId = (id: string | null) => {
+    setSelectedNode(id);
+    if (id !== null) setSelectedEdgeState(null);
+  };
+  const setSelectedEdgeId = (id: string | null) => {
+    setSelectedEdgeState(id);
+    if (id !== null) setSelectedNode(null);
+  };
+  const [showPath, setShowPath] = useState(!!requested);
+  const [pathId, setPathId] = useState<string | null>(requested?.id ?? null);
 
   const assetIndex = useMemo(() => indexById(assets), [assets]);
   const findingIndex = useMemo(() => indexById(findings), [findings]);
@@ -38,6 +52,7 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
     [graph, activePath, showPath],
   );
   const selectedNode = graph.nodes.find((n) => n.id === selectedId) ?? null;
+  const selectedEdge = graph.edges.find((e) => e.id === selectedEdgeId) ?? null;
 
   if (graph.nodes.length === 0) {
     return (
@@ -50,7 +65,7 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <Panel aria-labelledby="graph-title">
         <PanelHeader
           id="graph-title"
@@ -75,6 +90,12 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
           }
         />
         <div className="space-y-3 p-4">
+          {requestedPathId && !requested && (
+            <p role="status" data-testid="graph-path-not-found" className="rounded-md border border-line-strong bg-ink-900 px-3 py-2 text-xs leading-relaxed text-fg-soft">
+              No attack path <code className="font-mono text-fg">{requestedPathId}</code> exists in the current data source, so nothing is highlighted
+              for it.
+            </p>
+          )}
           {paths.length > 1 && (
             <div role="tablist" aria-label="Attack paths" className="flex flex-wrap gap-2">
               {paths.map((p) => (
@@ -104,6 +125,8 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
             findings={findings}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            selectedEdgeId={selectedEdgeId}
+            onSelectEdge={setSelectedEdgeId}
             highlight={highlight}
             origin={source.origin}
           />
@@ -113,7 +136,7 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
               <span className="font-semibold text-fg">Potential path, not a confirmed exploit.</span> It is an inferred
               chain of relationships{activePath.isSimulated ? ' in a simulated scenario' : ''}. No exploitation has been
               performed or verified.{' '}
-              <Link to="/paths" className="font-medium text-signal underline underline-offset-2">
+              <Link to={`/paths?p=${encodeURIComponent(activePath.id)}`} className="font-medium text-signal underline underline-offset-2">
                 Investigate path
               </Link>
             </p>
@@ -122,8 +145,17 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
       </Panel>
 
       <Panel aria-labelledby="inspector-title" className="self-start">
-        <PanelHeader id="inspector-title" title="Selected node" />
-        <NodeInspector node={selectedNode} graph={graph} assets={assetIndex} findings={findingIndex} />
+        <PanelHeader id="inspector-title" title={selectedEdge ? 'Selected relationship' : 'Selected node'} />
+        {selectedEdge ? (
+          <EdgeInspector
+            edge={selectedEdge}
+            graph={graph}
+            onPath={highlight.edges.has(selectedEdge.id)}
+            onSelectNode={setSelectedId}
+          />
+        ) : (
+          <NodeInspector node={selectedNode} graph={graph} assets={assetIndex} findings={findingIndex} />
+        )}
       </Panel>
     </div>
   );
@@ -131,6 +163,8 @@ function GraphWorkspace({ bundle }: { bundle: GraphBundle }) {
 
 export function SecurityGraphView() {
   const { source } = useDataSource();
+  const [params] = useSearchParams();
+  const requestedPathId = parsePathParam(params.get('path'));
   const { state, reload } = useSourceData<GraphBundle>(async (src, signal) => {
     const [graph, assets, findings, paths] = await Promise.all([
       src.getSecurityGraph(signal),
@@ -156,7 +190,8 @@ export function SecurityGraphView() {
         }
       />
       <AsyncBoundary state={state} onRetry={reload} skeletonRows={6} label="Loading graph">
-        {(bundle) => <GraphWorkspace bundle={bundle} />}
+        {/* keyed on the requested id so navigating between ?path= values re-initialises the highlight */}
+        {(bundle) => <GraphWorkspace key={requestedPathId ?? ''} bundle={bundle} requestedPathId={requestedPathId} />}
       </AsyncBoundary>
     </>
   );

@@ -37,11 +37,12 @@ function AttackEdgeImpl({
         id={id}
         path={path}
         markerEnd={markerEnd}
-        interactionWidth={0}
+        interactionWidth={16}
         className={cn(data.animated && 'edge-flow')}
         style={{
           stroke: color,
-          strokeWidth: data.onPath ? 2.75 : data.connected ? 2.25 : 1.75,
+          strokeWidth: data.onPath ? 2.75 : data.selected || data.connected ? 2.5 : 1.75,
+          filter: data.selected ? `drop-shadow(0 0 3px ${color})` : undefined,
           strokeDasharray: dashed ? '7 5' : undefined,
           opacity: data.dim ? 0.25 : 1,
           transition: 'opacity 150ms',
@@ -53,6 +54,7 @@ function AttackEdgeImpl({
           data-edge-id={id}
           data-inferred={data.inferred}
           data-on-path={data.onPath}
+          data-selected={data.selected}
           data-animated={data.animated}
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, opacity: data.dim ? 0.3 : 1 }}
           className={cn(

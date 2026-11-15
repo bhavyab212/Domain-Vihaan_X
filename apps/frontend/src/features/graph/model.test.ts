@@ -78,7 +78,8 @@ describe('flow nodes', () => {
     const built = nodes();
     expect(built).toHaveLength(PREVIEW_GRAPH.nodes.length);
     expect(built.filter((n) => n.type === 'finding')).toHaveLength(2);
-    expect(built.filter((n) => n.type === 'asset')).toHaveLength(3);
+    expect(built.filter((n) => n.type === 'asset')).toHaveLength(2); // repository + target
+    expect(built.filter((n) => n.type === 'identity')).toHaveLength(1); // the payload's one IDENTITY node
   });
 
   it('uses stable ids and a stable structure across rebuilds', () => {
@@ -89,8 +90,62 @@ describe('flow nodes', () => {
     const byId = Object.fromEntries(nodes().map((n) => [n.id, n]));
     expect((byId['asset-repo-01'] as AssetFlowNode).data.typeLabel).toBe('Repository');
     expect((byId['asset-repo-01'] as AssetFlowNode).data.assetType).toBe('REPOSITORY');
-    expect((byId['asset-cloud-01'] as AssetFlowNode).data.typeLabel).toBe('Identity');
+    expect(byId['asset-cloud-01'].type).toBe('identity'); // identity card, not an asset card
     expect((byId['asset-storage-01'] as AssetFlowNode).data.typeLabel).toBe('Target');
+  });
+
+  describe('IdentityNode honesty', () => {
+    const identityGraph = (type: 'IDENTITY' | 'ASSET'): SecurityGraph => ({
+      updatedAt: 't',
+      nodes: [{ id: 'asset-cloud-01', label: 'StagingDeployer (IAM role)', type }],
+      edges: [],
+    });
+
+    it('creates an identity node ONLY when the payload says type IDENTITY', () => {
+      const asIdentity = buildFlowNodes(identityGraph('IDENTITY'), PREVIEW_ASSETS, [], 'SIMULATED_DEMO');
+      const asAsset = buildFlowNodes(identityGraph('ASSET'), PREVIEW_ASSETS, [], 'SIMULATED_DEMO');
+      expect(asIdentity[0].type).toBe('identity');
+      expect(asAsset[0].type).toBe('asset'); // a cloud account is never promoted to an identity by the UI
+    });
+
+    it('never fabricates identity nodes: none exist when the payload has none', () => {
+      const noIdentity: SecurityGraph = {
+        ...PREVIEW_GRAPH,
+        nodes: PREVIEW_GRAPH.nodes.map((n) => (n.type === 'IDENTITY' ? { ...n, type: 'ASSET' as const } : n)),
+      };
+      expect(buildFlowNodes(noIdentity, PREVIEW_ASSETS, PREVIEW_FINDINGS, 'SIMULATED_DEMO').some((n) => n.type === 'identity')).toBe(false);
+    });
+
+    it('shows the real backing asset when its name differs from the node label, plus owner and environment', () => {
+      const [node] = buildFlowNodes(identityGraph('IDENTITY'), PREVIEW_ASSETS, [], 'SIMULATED_DEMO');
+      expect(node.data).toMatchObject({
+        kind: 'identity',
+        label: 'StagingDeployer (IAM role)',
+        backingAsset: { name: 'aws-production-account', typeLabel: 'Cloud account' },
+        owner: 'DevOps Team',
+        environment: 'PRODUCTION',
+        criticality: 'CRITICAL',
+      });
+    });
+
+    it('omits backing asset and owner when the inventory has no record', () => {
+      const [node] = buildFlowNodes(identityGraph('IDENTITY'), [], [], 'BACKEND_API');
+      expect(node.data).toMatchObject({ kind: 'identity', simulated: false });
+      expect((node.data as { backingAsset?: unknown }).backingAsset).toBeUndefined();
+      expect((node.data as { owner?: unknown }).owner).toBeUndefined();
+    });
+  });
+
+  it('carries owner on asset cards only when the asset record has one', () => {
+    const repo = nodes().find((n) => n.id === 'asset-repo-01') as AssetFlowNode;
+    expect(repo.data.owner).toBe('Engineering Team');
+    const [bare] = buildFlowNodes(
+      { updatedAt: 't', nodes: [{ id: 'x', label: 'x', type: 'ASSET' }], edges: [] },
+      [],
+      [],
+      'BACKEND_API',
+    ) as AssetFlowNode[];
+    expect(bare.data.owner).toBeUndefined();
   });
 
   it('carries environment, criticality and one real metadata line from the asset', () => {
@@ -98,8 +153,12 @@ describe('flow nodes', () => {
     expect(repo.data.environment).toBe('PRODUCTION');
     expect(repo.data.criticality).toBe('CRITICAL');
     expect(repo.data.metaLine).toBe('branch main');
-    const cloud = nodes().find((n) => n.id === 'asset-cloud-01') as AssetFlowNode;
-    expect(cloud.data.metaLine).toBe('AWS');
+    // the IAM role is an identity card: it intentionally has no provider/ARN metadata line
+    const cloud = nodes().find((n) => n.id === 'asset-cloud-01');
+    expect(cloud?.type).toBe('identity');
+    expect((cloud?.data as { metaLine?: string }).metaLine).toBeUndefined();
+    const target = nodes().find((n) => n.id === 'asset-storage-01') as AssetFlowNode;
+    expect(target.data.metaLine).toContain('arn:aws:s3');
   });
 
   it('omits metadata it does not have instead of inventing it', () => {
@@ -138,6 +197,29 @@ describe('flow nodes', () => {
 
   it('describes every node for assistive technology', () => {
     for (const n of nodes()) expect(n.ariaLabel).toMatch(/\w+: .+/);
+  });
+});
+
+describe('edge selection', () => {
+  const edges = (v: GraphView) => buildFlowEdges(PREVIEW_GRAPH, nodes(), v);
+
+  it('marks only the selected relationship selected and dims the rest', () => {
+    const e = edges(view({ selectedEdgeId: 'rel-01' }));
+    expect(e.filter((x) => x.data?.selected).map((x) => x.id)).toEqual(['rel-01']);
+    expect(e.find((x) => x.id === 'rel-01')?.selected).toBe(true);
+    expect(e.find((x) => x.id === 'rel-02')?.data?.dim).toBe(true);
+    expect(e.find((x) => x.id === 'rel-01')?.data?.dim).toBe(false);
+  });
+
+  it('selects nothing by default and ignores an unknown edge id', () => {
+    expect(edges(view()).some((x) => x.data?.selected)).toBe(false);
+    expect(edges(view({ selectedEdgeId: 'nope' })).some((x) => x.data?.selected)).toBe(false);
+  });
+
+  it('keeps the highlighted path visible while a relationship is selected, and never dims the selected one', () => {
+    const e = edges(view({ highlight: highlight(), selectedEdgeId: 'edge-repo-finding' }));
+    expect(e.find((x) => x.id === 'rel-01')?.data?.dim).toBe(false);
+    expect(e.find((x) => x.id === 'edge-repo-finding')?.data?.dim).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { FlaskConical, Target, UserCog } from 'lucide-react';
+import { FlaskConical, Target } from 'lucide-react';
 import { AssetIcon } from '@/components/common/AssetIcon';
 import { cn } from '@/lib/utils/cn';
 import { titleCase } from '@/lib/utils/format';
@@ -9,14 +9,13 @@ import type { AssetFlowNode } from '../model';
 import { NodeHandles } from './NodeHandles';
 
 function Glyph({ data }: { data: AssetFlowNode['data'] }) {
-  if (data.graphType === 'IDENTITY') return <UserCog className="h-4 w-4" aria-hidden />;
   if (data.graphType === 'EXPLOIT_TARGET') return <Target className="h-4 w-4" aria-hidden />;
   return <AssetIcon type={data.assetType} className="h-4 w-4" />;
 }
 
 /**
- * Asset card: repository / cloud account / data store / identity / target.
- * Shows only what the data source supplied (environment, criticality and one metadata line when present).
+ * Asset card: repository / cloud account / data store / target. (Identity nodes have their own card.)
+ * Shows only what the data source supplied: environment, criticality, owner and one metadata line when present.
  * Asset records carry no provenance field in the API contract, so the "Sim" mark reflects the data source
  * (local preview fixtures) rather than a per-asset claim.
  */
@@ -61,6 +60,7 @@ function AssetNodeImpl({ data, selected }: NodeProps<AssetFlowNode>) {
           </span>
         )}
       </div>
+      {data.owner && <p className="mt-0.5 truncate pl-1 text-2xs text-fg-muted">Owner: {data.owner}</p>}
       {data.metaLine && <p className="mt-0.5 truncate pl-1 font-mono text-2xs text-fg-faint">{data.metaLine}</p>}
     </div>
   );

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileCode2, FlaskConical, Lightbulb, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileCode2, FlaskConical, Lightbulb, Wrench } from 'lucide-react';
 import { AssetIcon } from '@/components/common/AssetIcon';
 import { Drawer } from '@/components/common/Drawer';
 import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
@@ -14,6 +14,39 @@ interface FindingDrawerProps {
   asset: DigitalAsset | undefined;
   evidence: FindingEvidence | null;
   onClose: () => void;
+  /** Position within the currently visible (filtered, sorted) list; enables previous/next navigation. */
+  position?: { index: number; total: number };
+  onPrevious?: () => void;
+  onNext?: () => void;
+}
+
+function FindingNav({ position, onPrevious, onNext }: { position: { index: number; total: number }; onPrevious?: () => void; onNext?: () => void }) {
+  const only = position.total <= 1;
+  return (
+    <nav aria-label="Finding navigation" className="mb-4 flex items-center justify-between rounded-md border border-line bg-ink-850 px-2 py-1.5 text-xs text-fg-muted">
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={only}
+        aria-label="Previous finding"
+        className="flex items-center gap-1 rounded px-2 py-1 hover:bg-ink-800 hover:text-fg disabled:pointer-events-none disabled:opacity-40"
+      >
+        <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Previous
+      </button>
+      <span className="tabular" aria-live="polite">
+        Finding {position.index + 1} of {position.total} <span className="text-fg-faint">(j / k)</span>
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={only}
+        aria-label="Next finding"
+        className="flex items-center gap-1 rounded px-2 py-1 hover:bg-ink-800 hover:text-fg disabled:pointer-events-none disabled:opacity-40"
+      >
+        Next <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </nav>
+  );
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -51,7 +84,7 @@ function ProvenanceNote({ finding }: { finding: SecurityFinding }) {
   );
 }
 
-export function FindingDrawer({ finding, asset, evidence, onClose }: FindingDrawerProps) {
+export function FindingDrawer({ finding, asset, evidence, onClose, position, onPrevious, onNext }: FindingDrawerProps) {
   return (
     <Drawer
       open={finding !== null}
@@ -69,6 +102,11 @@ export function FindingDrawer({ finding, asset, evidence, onClose }: FindingDraw
     >
       {finding && (
         <div className="space-y-6">
+          {position && position.total > 0 && (
+            <div className="-mb-2">
+              <FindingNav position={position} onPrevious={onPrevious} onNext={onNext} />
+            </div>
+          )}
           <ProvenanceNote finding={finding} />
 
           <p className="text-sm leading-relaxed text-fg-soft">{finding.description}</p>
@@ -116,11 +154,16 @@ export function FindingDrawer({ finding, asset, evidence, onClose }: FindingDraw
           <Section title="Evidence & provenance" icon={<FileCode2 className="h-3.5 w-3.5" aria-hidden />}>
             {finding.location?.file && (
               <p className="text-xs text-fg-muted">
-                Location:{' '}
+                File:{' '}
                 <code className="font-mono text-fg-soft">
                   {finding.location.file}
                   {finding.location.line != null && `:${finding.location.line}`}
                 </code>
+              </p>
+            )}
+            {finding.location?.resource && (
+              <p className="text-xs text-fg-muted">
+                Resource: <code className="font-mono text-fg-soft">{finding.location.resource}</code>
               </p>
             )}
             {evidence ? (

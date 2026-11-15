@@ -1,26 +1,42 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Boxes, Crosshair, History, ListChecks, Radar } from 'lucide-react';
+import { ArrowRight, Boxes, History, ListChecks } from 'lucide-react';
 import { AssetIcon, domainOfAssetType, type SecurityDomain } from '@/components/common/AssetIcon';
 import { AsyncBoundary } from '@/components/common/AsyncBoundary';
 import { PageHeader } from '@/components/common/PageHeader';
-import { ProvenanceBadge } from '@/components/common/ProvenanceBadge';
 import { SeverityBadge } from '@/components/common/SeverityBadge';
 import { EmptyState } from '@/components/common/States';
 import { Badge } from '@/components/ui/Badge';
 import { Panel, PanelHeader } from '@/components/ui/Panel';
 import { useDataSource } from '@/app/providers/DataSourceProvider';
+import { assetFacts } from '@/features/graph/model';
 import { useSourceData } from '@/hooks/useSourceData';
-import { ASSET_TYPE_LABEL, formatPercent, formatUtc, indexById, titleCase } from '@/lib/utils/format';
+import { ASSET_TYPE_LABEL, formatUtc, indexById, parseApiDate, titleCase } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
-import { SEVERITY_ORDER, SEVERITY_STYLE, severityRank } from '@/lib/utils/severity';
-import type { AttackPath, DigitalAsset, SecurityFinding, SeverityLevel } from '@/types';
+import { SEVERITY_STYLE, severityRank } from '@/lib/utils/severity';
+import type { AssetType, AttackPath, DigitalAsset, RemediationAction, SecurityFinding, SecurityGraph } from '@/types';
+import { KpiGrid } from './KpiGrid';
+import { PathPreview } from './PathPreview';
+import { computePosture } from './posture';
+import { StatusStrip } from './StatusStrip';
 
 interface OverviewBundle {
   assets: DigitalAsset[];
   findings: SecurityFinding[];
-  /** Optional: not declared in openapi.yaml yet, so a failure here must not hide the rest. */
+  /** Optional endpoints: a failure (null) must not hide the rest, and must read as "unavailable", never as zero. */
   paths: AttackPath[] | null;
+  graph: SecurityGraph | null;
+  remediations: RemediationAction[] | null;
+}
+
+/** What the inventory panels need about an asset. Optional fields stay absent when the source does not supply them. */
+interface DisplayAsset {
+  id: string;
+  name: string;
+  type: AssetType;
+  environment?: string;
+  criticality?: string;
+  owner?: string;
 }
 
 const DOMAINS: { id: SecurityDomain; label: string; scope: string }[] = [
@@ -29,98 +45,24 @@ const DOMAINS: { id: SecurityDomain; label: string; scope: string }[] = [
   { id: 'EXTERNAL', label: 'External attack surface', scope: 'Domains, DNS and TLS, exposed services' },
 ];
 
-function SeverityTile({ severity, count }: { severity: SeverityLevel; count: number }) {
-  const style = SEVERITY_STYLE[severity];
-  return (
-    <div className="relative overflow-hidden rounded-md border border-line bg-ink-900 px-4 py-3">
-      <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', count > 0 ? style.bar : 'bg-line-strong')} />
-      <p className="text-2xs uppercase text-fg-muted">{style.label}</p>
-      <p className={cn('tabular mt-1 text-3xl font-semibold leading-none', count > 0 ? style.text : 'text-fg-faint')}>{count}</p>
-      <p className="mt-1.5 text-xs text-fg-muted">open {count === 1 ? 'finding' : 'findings'}</p>
-    </div>
-  );
+/**
+ * The asset list to display. The inventory wins. When GET /assets returns nothing but the graph names assets (Dev A's
+ * backend today), show what the graph supplies and say so. Only validated facts are used; an asset whose type the
+ * graph does not state is skipped rather than guessed, and absent fields are left absent.
+ */
+function displayAssets(assets: DigitalAsset[], graph: SecurityGraph | null): { items: DisplayAsset[]; fromGraph: boolean } {
+  if (assets.length > 0) return { items: assets, fromGraph: false };
+  const items: DisplayAsset[] = [];
+  for (const node of graph?.nodes ?? []) {
+    if (node.type === 'FINDING') continue;
+    const facts = assetFacts(node, undefined);
+    if (!facts.assetType) continue;
+    items.push({ id: node.id, name: node.label, type: facts.assetType, environment: facts.environment, criticality: facts.criticality, owner: facts.owner });
+  }
+  return { items, fromGraph: items.length > 0 };
 }
 
-function FindingsSummary({ findings }: { findings: SecurityFinding[] }) {
-  const counts = useMemo(() => {
-    const tally = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0])) as Record<SeverityLevel, number>;
-    for (const f of findings) if (f.status === 'OPEN') tally[f.severity] += 1;
-    return tally;
-  }, [findings]);
-
-  return (
-    <Panel aria-labelledby="posture-title">
-      <PanelHeader
-        id="posture-title"
-        title="Open findings by severity"
-        description="Tallied from the findings list below; no score is computed in the browser."
-        action={
-          <Link to="/threats" className="inline-flex items-center gap-1 text-xs font-medium text-signal hover:underline">
-            View all <ArrowRight className="h-3 w-3" aria-hidden />
-          </Link>
-        }
-      />
-      {findings.length === 0 ? (
-        <EmptyState
-          icon={<Radar className="h-7 w-7" aria-hidden />}
-          title="No findings reported"
-          description="Nothing has been reported yet. Run an assessment, or switch to the local preview data."
-        />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
-          {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((s) => (
-            <SeverityTile key={s} severity={s} count={counts[s]} />
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-function ActivePaths({ paths }: { paths: AttackPath[] | null }) {
-  return (
-    <Panel aria-labelledby="paths-title">
-      <PanelHeader
-        id="paths-title"
-        title="Potential attack paths"
-        description="Inferred from relationships; not confirmed exploitation."
-        action={
-          <Link to="/paths" className="inline-flex items-center gap-1 text-xs font-medium text-signal hover:underline">
-            Investigate <ArrowRight className="h-3 w-3" aria-hidden />
-          </Link>
-        }
-      />
-      {paths === null ? (
-        <EmptyState
-          icon={<Crosshair className="h-6 w-6" aria-hidden />}
-          title="Attack paths unavailable"
-          description="The backend does not serve attack paths yet (the route is not declared in the OpenAPI contract)."
-        />
-      ) : paths.length === 0 ? (
-        <EmptyState icon={<Crosshair className="h-6 w-6" aria-hidden />} title="No potential attack paths" description="None have been identified." />
-      ) : (
-        <ul className="divide-y divide-line">
-          {paths.map((p) => (
-            <li key={p.id} className="space-y-2 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <SeverityBadge severity={p.severity} />
-                <Badge tone="neutral">{p.status === 'ACTIVE' ? 'Open' : 'Mitigated'}</Badge>
-                <Badge tone="signal">Inferred</Badge>
-                {p.isSimulated && <ProvenanceBadge provenance="SIMULATED_DEMO" />}
-              </div>
-              <p className="text-sm font-medium leading-snug text-fg">{p.title}</p>
-              <p className="text-xs text-fg-muted">
-                {p.steps.length} steps · confidence {formatPercent(p.confidenceScore)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
-  );
-}
-
-function DomainOverview({ assets, findings }: { assets: DigitalAsset[]; findings: SecurityFinding[] }) {
+function DomainOverview({ assets, findings }: { assets: DisplayAsset[]; findings: SecurityFinding[] }) {
   const rows = useMemo(() => {
     const assetIndex = indexById(assets);
     return DOMAINS.map((d) => {
@@ -160,28 +102,37 @@ function DomainOverview({ assets, findings }: { assets: DigitalAsset[]; findings
   );
 }
 
-function AssetOverview({ assets }: { assets: DigitalAsset[] }) {
+function AssetOverview({ assets, fromGraph }: { assets: DisplayAsset[]; fromGraph: boolean }) {
   return (
     <Panel aria-labelledby="assets-title">
-      <PanelHeader id="assets-title" title="Asset inventory" description={`${assets.length} registered ${assets.length === 1 ? 'asset' : 'assets'}`} />
+      <PanelHeader
+        id="assets-title"
+        title="Asset inventory"
+        description={
+          fromGraph
+            ? `${assets.length} ${assets.length === 1 ? 'asset' : 'assets'} named by the graph. The inventory endpoint returned none.`
+            : `${assets.length} registered ${assets.length === 1 ? 'asset' : 'assets'}`
+        }
+      />
       {assets.length === 0 ? (
         <EmptyState icon={<Boxes className="h-6 w-6" aria-hidden />} title="No assets registered" description="Register an asset to begin assessing it." />
       ) : (
         <ul className="divide-y divide-line">
-          {assets.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-ink-900 text-signal">
-                <AssetIcon type={a.type} className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-fg">{a.name}</p>
-                <p className="text-xs text-fg-muted">
-                  {ASSET_TYPE_LABEL[a.type]} · {titleCase(a.environment)} · {a.owner}
-                </p>
-              </div>
-              <Badge tone={a.criticality === 'CRITICAL' ? 'critical' : 'neutral'}>{titleCase(a.criticality)}</Badge>
-            </li>
-          ))}
+          {assets.map((a) => {
+            const meta = [ASSET_TYPE_LABEL[a.type], a.environment && titleCase(a.environment), a.owner].filter(Boolean).join(' · ');
+            return (
+              <li key={a.id} className="flex items-center gap-3 px-4 py-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-ink-900 text-signal">
+                  <AssetIcon type={a.type} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-fg">{a.name}</p>
+                  <p className="text-xs text-fg-muted">{meta}</p>
+                </div>
+                {a.criticality && <Badge tone={a.criticality === 'CRITICAL' ? 'critical' : 'neutral'}>{titleCase(a.criticality)}</Badge>}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>
@@ -190,14 +141,21 @@ function AssetOverview({ assets }: { assets: DigitalAsset[] }) {
 
 function ActivityPanel({ findings }: { findings: SecurityFinding[] }) {
   const events = useMemo(
-    () => [...findings].sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt)).slice(0, 6),
+    () =>
+      [...findings]
+        .sort((a, b) => (parseApiDate(b.discoveredAt)?.getTime() ?? 0) - (parseApiDate(a.discoveredAt)?.getTime() ?? 0))
+        .slice(0, 6),
     [findings],
   );
   return (
     <Panel aria-labelledby="activity-title">
-      <PanelHeader id="activity-title" title="Recent assessment activity" description="Finding discovery times reported by the data source" />
+      <PanelHeader
+        id="activity-title"
+        title="Recent finding discoveries"
+        description="Discovery times reported on findings. This is not an assessment log; the backend serves no assessment history yet."
+      />
       {events.length === 0 ? (
-        <EmptyState icon={<History className="h-6 w-6" aria-hidden />} title="No activity yet" description="No assessments have reported results." />
+        <EmptyState icon={<History className="h-6 w-6" aria-hidden />} title="No activity yet" description="No findings with discovery times have been reported." />
       ) : (
         <ol className="space-y-0 px-4 py-3">
           {events.map((f) => (
@@ -264,19 +222,23 @@ function Recommendations({ findings }: { findings: SecurityFinding[] }) {
 }
 
 function OverviewContent({ bundle }: { bundle: OverviewBundle }) {
-  const { assets, findings, paths } = bundle;
+  const { assets, findings, paths, graph, remediations } = bundle;
+  const posture = useMemo(() => computePosture({ assets, findings, paths, graph, remediations }), [assets, findings, paths, graph, remediations]);
+  const shown = useMemo(() => displayAssets(assets, graph), [assets, graph]);
+  const assetIndex = useMemo(() => indexById(assets), [assets]);
+
   return (
     <div className="space-y-4">
-      <FindingsSummary findings={findings} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ActivePaths paths={paths} />
-        <DomainOverview assets={assets} findings={findings} />
+      <KpiGrid posture={posture} />
+      <PathPreview paths={paths} graph={graph} assets={assetIndex} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <DomainOverview assets={shown.items} findings={findings} />
+        <AssetOverview assets={shown.items} fromGraph={shown.fromGraph} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AssetOverview assets={assets} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ActivityPanel findings={findings} />
+        <Recommendations findings={findings} />
       </div>
-      <Recommendations findings={findings} />
     </div>
   );
 }
@@ -284,26 +246,33 @@ function OverviewContent({ bundle }: { bundle: OverviewBundle }) {
 export function OverviewView() {
   const { source } = useDataSource();
   const { state, reload } = useSourceData<OverviewBundle>(async (src, signal) => {
-    const [assets, findings, paths] = await Promise.all([
+    const [assets, findings, paths, graph, remediations] = await Promise.all([
       src.getAssets(signal),
       src.getFindings(signal),
+      // Optional endpoints: unavailable must read as "unavailable" (null), not as an empty list.
       src.getAttackPaths(signal).catch(() => null),
+      src.getSecurityGraph(signal).catch(() => null),
+      src.getRemediations(signal).catch(() => null),
     ]);
-    return { assets, findings, paths };
+    return { assets, findings, paths, graph, remediations };
   });
 
   return (
     <>
       <PageHeader
         title="Security Command Center"
-        description="Posture at a glance: what is registered, what was found, and which potential attack paths matter most."
+        description="Posture at a glance: what is registered, what was found, and which potential attack paths matter most. Every number is a count of records the data source returned."
         actions={
           source.origin === 'SIMULATED_DEMO' ? <Badge tone="sim">Simulated demo data</Badge> : <Badge tone="signal">Backend data</Badge>
         }
       />
-      <AsyncBoundary state={state} onRetry={reload} skeletonRows={7} label="Loading overview">
-        {(bundle) => <OverviewContent bundle={bundle} />}
-      </AsyncBoundary>
+      <div className="space-y-4">
+        {/* Outside the data boundary on purpose: "connecting" and "unavailable" are exactly when status matters. */}
+        <StatusStrip />
+        <AsyncBoundary state={state} onRetry={reload} skeletonRows={7} label="Loading overview">
+          {(bundle) => <OverviewContent bundle={bundle} />}
+        </AsyncBoundary>
+      </div>
     </>
   );
 }

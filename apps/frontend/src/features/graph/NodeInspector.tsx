@@ -5,7 +5,8 @@ import { SeverityBadge } from '@/components/common/SeverityBadge';
 import { EmptyState } from '@/components/common/States';
 import { Badge } from '@/components/ui/Badge';
 import { ASSET_TYPE_LABEL, formatPercent, humanizeRelationship, titleCase } from '@/lib/utils/format';
-import type { DigitalAsset, GraphNode, SecurityFinding, SecurityGraph } from '@/types';
+import type { DigitalAsset, GraphEdge, GraphNode, SecurityFinding, SecurityGraph } from '@/types';
+import { assetFacts, findingNodeFacts } from './model';
 
 interface NodeInspectorProps {
   node: GraphNode | null;
@@ -39,11 +40,20 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
   const finding = findings[node.id];
   const labelOf = (id: string) => graph.nodes.find((n) => n.id === id)?.label ?? id;
   const related = graph.edges.filter((e) => e.source === node.id || e.target === node.id);
+  // GET /assets and /findings may be empty (Dev A's backend still returns []), so fall back to the graph node's
+  // own data. Same reader the node cards use, so the card and the inspector can never disagree.
+  const isFinding = node.type === 'FINDING';
+  const facts = isFinding ? undefined : assetFacts(node, asset);
+  const nodeFinding = isFinding ? findingNodeFacts(node) : undefined;
+  const scanner = finding?.scanner ?? nodeFinding?.scanner;
+  const status = finding?.status ?? nodeFinding?.status;
+  const cvss = finding?.cvssScore ?? nodeFinding?.cvssScore;
+  const cve = finding?.cveId ?? nodeFinding?.cveId;
 
   return (
     <div className="space-y-4 p-4" data-testid="node-inspector">
       <div>
-        <p className="text-2xs uppercase text-fg-muted">{node.type === 'FINDING' ? 'Finding' : 'Asset'}</p>
+        <p className="text-2xs uppercase text-fg-muted">{NODE_KIND_LABEL[node.type]}</p>
         <h3 className="mt-0.5 text-base font-semibold leading-snug text-fg">{node.label}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {node.severity && <SeverityBadge severity={node.severity} />}
@@ -55,18 +65,19 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
         <Row label="Node ID">
           <code className="font-mono text-2xs text-fg-soft">{node.id}</code>
         </Row>
-        {asset && (
-          <>
-            <Row label="Type">{ASSET_TYPE_LABEL[asset.type]}</Row>
-            <Row label="Environment">{titleCase(asset.environment)}</Row>
-            <Row label="Criticality">{titleCase(asset.criticality)}</Row>
-            <Row label="Owner">{asset.owner}</Row>
-          </>
+        {facts?.assetType && <Row label="Type">{ASSET_TYPE_LABEL[facts.assetType]}</Row>}
+        {facts?.environment && <Row label="Environment">{titleCase(facts.environment)}</Row>}
+        {facts?.criticality && <Row label="Criticality">{titleCase(facts.criticality)}</Row>}
+        {facts?.owner && <Row label="Owner">{facts.owner}</Row>}
+        {facts?.metaLine && (
+          <Row label="Detail">
+            <code className="font-mono text-2xs text-fg-soft">{facts.metaLine}</code>
+          </Row>
         )}
-        {finding && (
+        {isFinding && (
           <>
-            <Row label="Scanner label">{finding.scanner}</Row>
-            {finding.location?.file && (
+            {scanner && <Row label="Scanner label">{scanner}</Row>}
+            {finding?.location?.file && (
               <Row label="Location">
                 <code className="font-mono text-2xs">
                   {finding.location.file}
@@ -74,7 +85,9 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
                 </code>
               </Row>
             )}
-            <Row label="Status">{titleCase(finding.status)}</Row>
+            {status && <Row label="Status">{titleCase(status)}</Row>}
+            {cvss != null && <Row label="CVSS">{cvss.toFixed(1)}</Row>}
+            {cve && <Row label="CVE">{cve}</Row>}
           </>
         )}
       </dl>
@@ -107,11 +120,75 @@ export function NodeInspector({ node, graph, assets, findings }: NodeInspectorPr
         )}
       </div>
 
-      {finding && (
-        <Link to="/threats" className="inline-block text-xs font-medium text-signal underline underline-offset-2">
+      {isFinding && (
+        <Link
+          to={`/threats?f=${encodeURIComponent(node.id)}`}
+          className="inline-block text-xs font-medium text-signal underline underline-offset-2"
+        >
           Open in Threats &amp; Findings
         </Link>
       )}
+    </div>
+  );
+}
+
+const NODE_KIND_LABEL: Record<GraphNode['type'], string> = {
+  ASSET: 'Asset',
+  FINDING: 'Finding',
+  IDENTITY: 'Identity',
+  EXPLOIT_TARGET: 'Target asset',
+};
+
+interface EdgeInspectorProps {
+  edge: GraphEdge | null;
+  graph: SecurityGraph;
+  /** True when this relationship is on the highlighted potential attack path. */
+  onPath: boolean;
+  onSelectNode: (id: string) => void;
+}
+
+/** Selected-relationship panel: type, verified vs inferred, confidence (only when supplied) and both endpoints. */
+export function EdgeInspector({ edge, graph, onPath, onSelectNode }: EdgeInspectorProps) {
+  if (!edge) return null;
+  const find = (id: string) => graph.nodes.find((n) => n.id === id);
+  const source = find(edge.source);
+  const target = find(edge.target);
+
+  return (
+    <div className="space-y-4 p-4" data-testid="edge-inspector">
+      <div>
+        <p className="text-2xs uppercase text-fg-muted">Relationship</p>
+        <h3 className="mt-0.5 text-base font-semibold leading-snug text-fg">{humanizeRelationship(edge.relationship)}</h3>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge tone={edge.inferred ? 'signal' : 'neutral'}>{edge.inferred ? 'Inferred' : 'Verified'}</Badge>
+          {onPath && <Badge tone="critical">On potential path</Badge>}
+        </div>
+      </div>
+
+      <dl className="divide-y divide-line border-y border-line">
+        <Row label="Edge ID">
+          <code className="font-mono text-2xs text-fg-soft">{edge.id}</code>
+        </Row>
+        <Row label="From">
+          <button type="button" onClick={() => onSelectNode(edge.source)} className="text-signal underline underline-offset-2">
+            {source?.label ?? edge.source}
+          </button>
+        </Row>
+        <Row label="To">
+          <button type="button" onClick={() => onSelectNode(edge.target)} className="text-signal underline underline-offset-2">
+            {target?.label ?? edge.target}
+          </button>
+        </Row>
+        {edge.confidence != null && <Row label="Confidence">{formatPercent(edge.confidence)}</Row>}
+      </dl>
+
+      <p className="text-xs leading-relaxed text-fg-soft">
+        {edge.inferred
+          ? 'Inferred by correlation. It is not a directly observed fact' +
+            (edge.confidence != null ? ', and the confidence is an engine estimate, not proof.' : '.')
+          : 'A recorded relationship reported by the data source.'}
+        {onPath && ' It is one hop of a potential attack path, which is not a confirmed exploit.'}
+      </p>
     </div>
   );
 }

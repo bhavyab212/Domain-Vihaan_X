@@ -16,10 +16,27 @@ const clockFormatter = new Intl.DateTimeFormat('en-GB', {
   hour12: false,
 });
 
+const HAS_ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+const LOOKS_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/**
+ * Parses a timestamp from the API. Dev A's backend emits ISO strings WITHOUT a timezone
+ * (e.g. "2026-11-14T23:18:26.714730"). JavaScript would read those as the viewer's LOCAL time, shifting every
+ * displayed time by their UTC offset. The API contract's timestamps are UTC, so a zone-less ISO string is
+ * treated as UTC. Anything with an explicit Z or offset is respected as-is. Returns null if unparseable.
+ */
+export function parseApiDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const text = value.trim();
+  const normalised = LOOKS_ISO.test(text) && !HAS_ZONE.test(text) ? `${text}Z` : text;
+  const date = new Date(normalised);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 /** Deterministic timestamp, e.g. "14 Nov, 10:05 UTC". Returns the raw value if it cannot be parsed. */
 export function formatUtc(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : `${utcFormatter.format(date)} UTC`;
+  const date = parseApiDate(iso);
+  return date ? `${utcFormatter.format(date)} UTC` : iso;
 }
 
 /** Local wall-clock time of day, e.g. "02:14:05". */

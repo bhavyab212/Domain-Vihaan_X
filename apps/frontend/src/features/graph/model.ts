@@ -40,10 +40,32 @@ export type AssetFlowData = {
   assetType?: AssetType;
   environment?: Environment;
   criticality?: Criticality;
+  /** Business owner exactly as supplied by the asset record. */
+  owner?: string;
   /** One metadata value taken verbatim from the asset (branch, provider or ARN); never invented. */
   metaLine?: string;
   severity?: SeverityLevel;
   /** True only for local preview fixtures. Assets carry no provenance field in the API contract. */
+  simulated: boolean;
+  onPath: boolean;
+  dim: boolean;
+  [key: string]: unknown;
+};
+
+/**
+ * Identity card data. An IdentityNode exists ONLY when the graph payload itself says `type: "IDENTITY"`; nothing
+ * is promoted to an identity to make the graph look richer. When the node is backed by an asset record whose real
+ * name differs from the node label, that real asset is shown so the label can never stand in for it.
+ */
+export type IdentityFlowData = {
+  kind: 'identity';
+  label: string;
+  /** Real asset record behind this node, when the inventory has one. */
+  backingAsset?: { name: string; typeLabel: string };
+  environment?: Environment;
+  criticality?: Criticality;
+  owner?: string;
+  severity?: SeverityLevel;
   simulated: boolean;
   onPath: boolean;
   dim: boolean;
@@ -63,8 +85,9 @@ export type FindingFlowData = {
 };
 
 export type AssetFlowNode = Node<AssetFlowData, 'asset'>;
+export type IdentityFlowNode = Node<IdentityFlowData, 'identity'>;
 export type FindingFlowNode = Node<FindingFlowData, 'finding'>;
-export type GraphFlowNode = AssetFlowNode | FindingFlowNode;
+export type GraphFlowNode = AssetFlowNode | IdentityFlowNode | FindingFlowNode;
 
 export type RelationshipEdgeData = {
   relationship: GraphRelationship;
@@ -74,6 +97,8 @@ export type RelationshipEdgeData = {
   onPath: boolean;
   /** Touches the selected node. */
   connected: boolean;
+  /** This relationship itself is the selected item. */
+  selected: boolean;
   dim: boolean;
   /** Flow animation: only ever true for on-path edges, and never under reduced motion. */
   animated: boolean;
@@ -85,6 +110,7 @@ export type RelationshipEdgeData = {
 export type RelationshipFlowEdge = Edge<RelationshipEdgeData, 'relationship'>;
 
 export const NODE_TYPE_ASSET = 'asset';
+export const NODE_TYPE_IDENTITY = 'identity';
 export const NODE_TYPE_FINDING = 'finding';
 export const EDGE_TYPE_RELATIONSHIP = 'relationship';
 
@@ -106,6 +132,8 @@ export const NO_HIGHLIGHT: Highlight = { nodes: new Set<string>(), edges: new Se
 
 export interface GraphView {
   selectedId: string | null;
+  /** A selected relationship (mutually exclusive with a selected node at the view level). */
+  selectedEdgeId?: string | null;
   highlight: Highlight;
   reducedMotion: boolean;
 }
@@ -152,11 +180,27 @@ function sideHandles(): HandleList {
 const HANDLES = sideHandles();
 
 const METADATA_KEYS = ['branch', 'provider', 'arn'] as const;
+const ASSET_TYPES = Object.keys(ASSET_TYPE_LABEL) as AssetType[];
+const ENVIRONMENTS: Environment[] = ['PRODUCTION', 'STAGING', 'DEVELOPMENT'];
+const CRITICALITIES: Criticality[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+/* ---- node.data readers -------------------------------------------------------------------------------------
+ * The graph payload is the only source that is ALWAYS present, whereas GET /assets and GET /findings may be
+ * empty (on Dev A's backend today both still return []). So facts are read from the inventory record first and
+ * fall back to node.data. Dev A's graph emits asset facts under `type`, `environment`, `criticality`, `owner`
+ * and `metadata`; older fixtures used `assetType`. node.data is untrusted: every value is validated against the
+ * known enum or type, and anything unrecognised is dropped rather than displayed.
+ */
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
+}
+function plainString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
 
 /** First recognised metadata value, exactly as supplied. Secrets are never in asset metadata. */
-function metadataLine(asset: DigitalAsset | undefined): string | undefined {
-  const meta = asset?.metadata;
-  if (!meta) return undefined;
+function metadataLine(meta: Record<string, unknown> | undefined): string | undefined {
+  if (!meta || typeof meta !== 'object') return undefined;
   for (const key of METADATA_KEYS) {
     const value = meta[key];
     if (typeof value === 'string' && value.length > 0) return key === 'branch' ? `branch ${value}` : value;
@@ -164,10 +208,51 @@ function metadataLine(asset: DigitalAsset | undefined): string | undefined {
   return undefined;
 }
 
-function nodeAssetType(node: GraphNode, asset: DigitalAsset | undefined): AssetType | undefined {
-  if (asset) return asset.type;
-  const value = node.data?.assetType;
-  return typeof value === 'string' ? (value as AssetType) : undefined;
+function dataMetadata(node: GraphNode): Record<string, unknown> | undefined {
+  const meta = node.data?.metadata;
+  return meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : undefined;
+}
+
+export interface AssetFacts {
+  assetType?: AssetType;
+  environment?: Environment;
+  criticality?: Criticality;
+  owner?: string;
+  metaLine?: string;
+}
+
+const FINDING_STATUSES: SecurityFinding['status'][] = ['OPEN', 'IN_REMEDIATION', 'RESOLVED', 'ACCEPTED_RISK'];
+
+export interface FindingNodeFacts {
+  scanner?: string;
+  status?: SecurityFinding['status'];
+  cvssScore?: number;
+  cveId?: string;
+  assetId?: string;
+}
+
+/** Finding facts carried on a graph node (`scanner, cvssScore, cveId, status, assetId`), validated. */
+export function findingNodeFacts(node: GraphNode): FindingNodeFacts {
+  const d = node.data ?? {};
+  return {
+    scanner: plainString(d.scanner),
+    status: oneOf(d.status, FINDING_STATUSES),
+    cvssScore: typeof d.cvssScore === 'number' && Number.isFinite(d.cvssScore) ? d.cvssScore : undefined,
+    cveId: plainString(d.cveId),
+    assetId: plainString(d.assetId),
+  };
+}
+
+/** Inventory record wins; node.data fills any gap. Shared by the node cards and the inspector. */
+export function assetFacts(node: GraphNode, asset: DigitalAsset | undefined): AssetFacts {
+  const d = node.data ?? {};
+  return {
+    assetType: asset?.type ?? oneOf(d.type, ASSET_TYPES) ?? oneOf(d.assetType, ASSET_TYPES),
+    environment: asset?.environment ?? oneOf(d.environment, ENVIRONMENTS),
+    criticality: asset?.criticality ?? oneOf(d.criticality, CRITICALITIES),
+    owner: asset?.owner ?? plainString(d.owner),
+    metaLine: metadataLine(asset?.metadata) ?? metadataLine(dataMetadata(node)),
+  };
 }
 
 function typeLabelFor(node: GraphNode, assetType: AssetType | undefined): string {
@@ -188,6 +273,7 @@ export function buildFlowNodes(
 ): GraphFlowNode[] {
   const assetById = new Map(assets.map((a) => [a.id, a]));
   const findingById = new Map(findings.map((f) => [f.id, f]));
+  const graphLabels = new Map(graph.nodes.map((n) => [n.id, n.label]));
   const layout = layoutGraph(graph);
   const simulated = origin === 'SIMULATED_DEMO';
 
@@ -203,9 +289,11 @@ export function buildFlowNodes(
 
     if (node.type === 'FINDING') {
       const finding = findingById.get(node.id);
-      const asset = finding ? assetById.get(finding.assetId) : undefined;
+      // The finding's asset: inventory name, else the graph's own asset node label (finding node data carries assetId).
+      const assetId = finding?.assetId ?? plainString(node.data?.assetId);
+      const assetName = (assetId ? assetById.get(assetId)?.name : undefined) ?? (assetId ? graphLabels.get(assetId) : undefined);
       const severity = finding?.severity ?? node.severity;
-      const scanner = finding?.scanner ?? (typeof node.data?.scanner === 'string' ? node.data.scanner : undefined);
+      const scanner = finding?.scanner ?? plainString(node.data?.scanner);
       return {
         ...common,
         type: NODE_TYPE_FINDING,
@@ -215,7 +303,7 @@ export function buildFlowNodes(
           label: node.label,
           severity,
           scanner,
-          assetName: asset?.name,
+          assetName,
           provenance: finding?.provenance,
           onPath: false,
           dim: false,
@@ -224,7 +312,30 @@ export function buildFlowNodes(
     }
 
     const asset = assetById.get(node.id);
-    const assetType = nodeAssetType(node, asset);
+    const facts = assetFacts(node, asset);
+    const assetType = facts.assetType;
+
+    if (node.type === 'IDENTITY') {
+      const differs = asset !== undefined && asset.name !== node.label;
+      return {
+        ...common,
+        type: NODE_TYPE_IDENTITY,
+        ariaLabel: `Identity: ${node.label}${node.severity ? `, ${node.severity.toLowerCase()} severity` : ''}`,
+        data: {
+          kind: 'identity',
+          label: node.label,
+          backingAsset: differs && asset && assetType ? { name: asset.name, typeLabel: ASSET_TYPE_LABEL[assetType] } : undefined,
+          environment: facts.environment,
+          criticality: facts.criticality,
+          owner: facts.owner,
+          severity: node.severity,
+          simulated,
+          onPath: false,
+          dim: false,
+        },
+      };
+    }
+
     return {
       ...common,
       type: NODE_TYPE_ASSET,
@@ -237,9 +348,10 @@ export function buildFlowNodes(
         graphType: node.type,
         typeLabel: typeLabelFor(node, assetType),
         assetType,
-        environment: asset?.environment,
-        criticality: asset?.criticality,
-        metaLine: metadataLine(asset),
+        environment: facts.environment,
+        criticality: facts.criticality,
+        owner: facts.owner,
+        metaLine: facts.metaLine,
         severity: node.severity,
         simulated,
         onPath: false,
@@ -299,8 +411,11 @@ export function buildFlowEdges(
     .filter((edge) => positions.has(edge.source) && positions.has(edge.target))
     .map((edge): RelationshipFlowEdge => {
       const onPath = view.highlight.edges.has(edge.id);
-      const connected = view.selectedId !== null && (edge.source === view.selectedId || edge.target === view.selectedId);
-      const dim = pathActive ? !onPath : view.selectedId !== null && !connected;
+      const selected = view.selectedEdgeId === edge.id;
+      const connected = view.selectedId != null && (edge.source === view.selectedId || edge.target === view.selectedId);
+      const anySelection = view.selectedId != null || view.selectedEdgeId != null;
+      // A path highlight wins; otherwise a selection dims everything that is not part of it.
+      const dim = pathActive ? !onPath && !selected : anySelection && !connected && !selected;
       const color = edgeColor(edge, onPath);
       const sublabel = edgeSublabel(edge);
       const { sourceHandle, targetHandle } = edgeHandles(positions.get(edge.source), positions.get(edge.target));
@@ -312,8 +427,10 @@ export function buildFlowEdges(
         sourceHandle,
         targetHandle,
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-        focusable: false,
-        selectable: false,
+        // Clicking a relationship selects it, so its type, confidence and endpoints can be inspected. Whether
+        // that does anything is up to the canvas (it only wires edge clicks when given `onSelectEdge`).
+        selectable: true,
+        selected,
         ariaLabel: `${humanizeRelationship(edge.relationship)}, ${sublabel}, from ${labels.get(edge.source) ?? edge.source} to ${
           labels.get(edge.target) ?? edge.target
         }`,
@@ -323,6 +440,7 @@ export function buildFlowEdges(
           confidence: edge.confidence,
           onPath,
           connected,
+          selected,
           dim,
           // Only the active potential path animates, and never under prefers-reduced-motion.
           animated: onPath && !view.reducedMotion,
