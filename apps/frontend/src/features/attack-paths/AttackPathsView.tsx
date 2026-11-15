@@ -97,7 +97,7 @@ function PathsWorkspace({ bundle }: { bundle: PathsBundle }) {
         </div>
       )}
 
-      <ul className="grid gap-3 lg:grid-cols-2" aria-label="Potential attack paths">
+      <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label="Potential attack paths">
         {models.map((m) => (
           <PathRow key={m.path.id} model={m} onOpen={() => open(m.path.id)} />
         ))}

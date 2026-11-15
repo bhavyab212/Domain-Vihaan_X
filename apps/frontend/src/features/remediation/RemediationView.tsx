@@ -204,7 +204,7 @@ function Detail({
         </div>
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="risk-title">
           <PanelHeader id="risk-title" title="Risk reduction" description="What this change is intended to do" />
           <div className="space-y-2 p-4 text-sm leading-relaxed text-fg-soft">
@@ -223,7 +223,7 @@ function Detail({
         </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="exec-title">
           <PanelHeader id="exec-title" title="Execution state" description="As reported by the backend" />
           <div className="space-y-3 p-4">
@@ -290,7 +290,7 @@ function RemediationWorkspace({ bundle }: { bundle: RemediationBundle }) {
           </p>
         </div>
       )}
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
         <Panel aria-labelledby="queue-title" className="self-start">
           <PanelHeader id="queue-title" title="Remediation queue" description={`${remediations.length} proposed`} />
           <ul className="divide-y divide-line" role="listbox" aria-label="Remediations">

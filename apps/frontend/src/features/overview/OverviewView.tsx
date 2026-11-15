@@ -231,11 +231,11 @@ function OverviewContent({ bundle }: { bundle: OverviewBundle }) {
     <div className="space-y-4">
       <KpiGrid posture={posture} />
       <PathPreview paths={paths} graph={graph} assets={assetIndex} />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DomainOverview assets={shown.items} findings={findings} />
         <AssetOverview assets={shown.items} fromGraph={shown.fromGraph} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ActivityPanel findings={findings} />
         <Recommendations findings={findings} />
       </div>

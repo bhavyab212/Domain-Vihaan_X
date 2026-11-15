@@ -36,7 +36,7 @@ export function StatusStrip() {
 
   return (
     <Panel aria-label="Operating status" data-testid="status-strip">
-      <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+      <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         <Cell label="Data source">
           {preview ? (
             <span className="flex items-center gap-2 text-sim">
