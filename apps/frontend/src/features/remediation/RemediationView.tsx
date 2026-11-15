@@ -204,7 +204,7 @@ function Detail({
         </div>
       </Panel>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="risk-title">
           <PanelHeader id="risk-title" title="Risk reduction" description="What this change is intended to do" />
           <div className="space-y-2 p-4 text-sm leading-relaxed text-fg-soft">
@@ -223,7 +223,7 @@ function Detail({
         </Panel>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="exec-title">
           <PanelHeader id="exec-title" title="Execution state" description="As reported by the backend" />
           <div className="space-y-3 p-4">
