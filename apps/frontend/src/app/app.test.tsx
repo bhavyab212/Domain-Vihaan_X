@@ -399,12 +399,15 @@ describe('finding evidence and remediation honesty', () => {
     const user = userEvent.setup();
     renderApp('/remediation');
     await screen.findByRole('form', { name: 'Human approval' });
-    const submit = screen.getByRole('button', { name: /Preview approval/ });
+    const submit = screen.getByRole('button', { name: /Review \(preview\)/ });
     expect(submit).toBeDisabled();
 
     await user.type(screen.getByLabelText('Approver'), 'dev-b');
     await user.click(screen.getByLabelText(/I have reviewed the proposed patch/));
     await user.click(submit);
+    // approval is a deliberate two-step: nothing is sent until the dialog is confirmed
+    const dialog = await screen.findByRole('alertdialog', { name: 'Preview this approval?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Got it' }));
 
     expect(await screen.findByTestId('approval-preview-notice')).toHaveTextContent(/No request was sent and no remediation was applied/);
     expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === 'POST')).toBe(false);
