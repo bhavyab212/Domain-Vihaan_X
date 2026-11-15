@@ -60,11 +60,11 @@ is a candidate for `React.lazy` code-splitting if load time ever matters.
 
 | Route | View | Purpose |
 | :--- | :--- | :--- |
-| `/` | Security Command Center | Findings tallied by severity, potential attack paths, MVP domain overview, asset inventory, recent activity, priority recommendations |
+| `/` | Security Command Center | Operating status (real `/health`, scanner states exactly as reported, last backend-confirmed reset), KPI tallies that link to filtered views, most-severe-path preview, domains, assets, finding-discovery timeline, recommendations. See "Command Center" |
 | `/graph` | Business Security Graph | Interactive React Flow map (repository, secret finding, IAM role, cloud storage): drag, zoom, pan, fit view, minimap, node and relationship selection, inspectors, potential-path highlight |
 | `/threats` | Threats & Findings | Triage workspace: category tabs, severity quick-filter, search, scanner / asset / status / provenance filters with removable chips, sortable columns, URL-restorable view, detail drawer with evidence and previous/next navigation. See "Findings center" |
-| `/paths` | Attack Path Investigation | Entry point → steps → target, choke point, evidence references, confidence; always labelled *inferred* |
-| `/remediation` | Remediation Studio | Queue, recommended fix, unified diff, human approval, lifecycle stepper, verification result |
+| `/paths` | Attack Path Investigation | Path list plus an investigation drawer: ordered kill chain, per-step evidence, relationship type, choke point only if supplied, deep link `?p=<id>`, "Show on graph". Always labelled *inferred*. See "Attack path investigation" |
+| `/remediation` | Remediation Studio | Queue, proposal facts (scope, size, placeholders), redacting diff viewer, confirmed human approval, lifecycle, verification; deep link `?r=<id>`. See "Remediation studio" |
 
 Unknown routes render a "Page not found" state, never a blank page.
 
@@ -191,6 +191,65 @@ falls back to fixtures; preview findings appear only when preview is explicitly 
 
 ---
 
+## 3c. Command Center (`/`)
+
+| File | Responsibility |
+| :--- | :--- |
+| `posture.ts` | **Pure** tallies. No score, trend or velocity exists anywhere (a test asserts none of those words render) |
+| `StatusStrip.tsx` | Operating status. Sits **outside** the data boundary so "connecting" and "unavailable" are visible exactly when they matter |
+| `KpiGrid.tsx`, `PathPreview.tsx` | KPI tiles and the most-severe-path kill-chain preview |
+
+- **Every number is a count of records the source returned**, and each KPI links to the view that lists exactly those records
+  (`/threats?severity=CRITICAL` when a critical exists).
+- **Unavailable is not zero.** A failed optional endpoint (attack paths, remediations) renders a dash with a reason; a
+  genuinely empty backend renders 0.
+- **Real-backend shape.** Dev A's backend currently returns empty `/assets` and `/findings` while the graph is populated, so
+  assets are counted from the graph and labelled "named by the graph"; the findings the graph reports are shown **without
+  inventing a severity breakdown**.
+- **Status.** Backend state is the real `/health` result (never green by default); the operating mode is shown only while the
+  backend is online; scanner states are shown exactly as reported, and `unverified` is **never** shown as healthy.
+- **Reset.** One shared `ResetDemoControl`: click, read what will happen, confirm, pending, then a backend-validated result. **Preview
+  mode never sends `POST /demo/reset`**; it says so and is neither green nor red. "Last reset" comes only from a
+  backend-confirmed `resetAt`.
+
+---
+
+## 3d. Attack path investigation (`/paths`)
+
+- `pathModel.ts` (pure) **resolves** ids the backend supplied into display facts. It discovers, ranks and scores nothing, and
+  it never fills a gap: an unknown asset or finding falls back to its bare id.
+- Verified against the **real backend payload** (`src/test/realBackend`): an empty inventory resolves from the graph, the final
+  step's `findingId: null` means "no finding" (never the string "null"), graph-only findings carry **no invented provenance**
+  and are not offered as openable in Threats & Findings.
+- The drawer shows the inferred-not-a-confirmed-exploit notice at the top, the kill chain (each hop is a real button with
+  `aria-expanded`), technique and MITRE tactic exactly as supplied and labelled descriptive, the relationship into each step
+  (inferred vs recorded, confidence only when supplied), and the choke point only when `chokePointAssetId` is supplied.
+- **AI analysis is inert.** No AI endpoint exists in the contract and the backend answers 404, so the panel makes no request and
+  writes no text. It states what will appear once an endpoint is published.
+- Deep links: `/paths?p=<id>` and `/graph?path=<id>` (the graph selects and highlights exactly that path, or says it does not
+  exist). Ids are parsed defensively and rendered as text.
+
+---
+
+## 3e. Remediation studio (`/remediation`)
+
+- **Approval is a deliberate two-step.** The form collects approver and rationale; "Review and approve" opens a confirmation that
+  states the exact scope (files from the diff), change size, approver, and what approval does **not** prove. Only that
+  confirmation sends anything, and Cancel is the initial focus.
+- **The reply is validated before it is trusted** (`checkApprovalResponse`): same remediation id, a status the contract defines. A
+  2xx that still says `PENDING` is shown as "no approval recorded". Failures are specific (501, 404, 409/412 stale, 422,
+  network) and never render server bodies. Duplicate submits are blocked by a synchronous ref guard.
+- **Reject and Execute are deliberately inert.** The contract defines no reject or execute operation; a button that only changed
+  local state would fabricate a decision. Reject is shown disabled with its reason; there is no Execute control.
+- **Green means verified-remediated and nothing else**: backend `APPLIED` + `PASSED`. Completed lifecycle stages and `+` diff lines are
+  deliberately not green, and a test asserts nothing else in `<main>` is.
+- **`DiffViewer` redacts secret-shaped values** before display and before copy, and says when it did. The backend is expected to
+  mask evidence; the UI does not rely on that. Shell scripts are never displayed or run.
+- The verification panel shows the raw backend enums and says re-assessment evidence is **not provided by the contract**; there
+  is no field for a reassessment id, scanner comparison or timestamp, so none is shown.
+
+---
+
 ## 4. API integration
 
 All HTTP lives in `src/lib/api/client.ts`, typed against `contracts/openapi/openapi.yaml` (bare JSON, camelCase).
@@ -221,6 +280,8 @@ forever. A 2xx response with the wrong shape is a visible error, not a success.
   built from the validated counts only and never echoes `runtimeWorkspace` or backend text.
 - Remediation: "Verified" appears **only** when the backend reports `status = APPLIED` **and** `verificationStatus = PASSED`.
   Opening a diff or clicking approve never advances any stage. In preview mode, approval sends nothing and says so.
+- **Timestamps.** The backend emits ISO strings **without a timezone**; JavaScript would read them as the viewer's local time and
+  shift every displayed time. `parseApiDate` treats a zone-less ISO string as UTC.
 
 ---
 
@@ -240,7 +301,7 @@ excerpts, and two illustrative remediation diffs (the IAM diff uses an explicit 
 
 ## 6. Testing
 
-`npm test` runs 291 tests across 12 files: routing and active nav state, offline usability, preview provenance, `/health`
+`npm test` runs 483 tests across 22 files: routing and active nav state, offline usability, preview provenance, `/health`
 reflection, error/empty/retry states, no leakage of server error bodies, reset honesty and response validation, approval
 honesty, lifecycle rules, API client classification, a git-index import guard, and fixture parity with `data/demo/`.
 
@@ -254,6 +315,16 @@ Findings coverage (`features/findings`): pure triage tests (every filter and com
 stability, tab counts), URL state tests (round trip, malformed and hostile input), and view tests (table, tabs, strip,
 chips, clear-all, drawer, previous/next, deep links, API mode never using fixtures, loading / error / empty states).
 
+Command Center / paths / remediation coverage: posture tallies against preview **and the captured real backend payload**; status
+honesty (connecting, unavailable, online, scanner states); every KPI's link target; the 9-case remediation green matrix with a
+page-wide "nothing else is green" assertion; approval confirm/cancel/duplicate/failure matrix; path model, kill chain and deep
+links; redaction; shared dialog focus trap and stacked-Escape. The honesty-critical rules were **mutation-checked** (break the
+rule, see red, restore, see green): 4 on the Command Center, 8 on paths, 10 on remediation, plus the reset preview guard and
+the dialog stack guard. Two mutations initially survived, which exposed weak tests that were then rewritten.
+
+`src/test/realBackend/*.json` are payloads **captured from Dev A's running backend** (`backend/TSK-009-011-014-security-operations`
+@ `c68502d`, run read-only from a temporary export), not hand-written fixtures. A contract test fails if the shape drifts.
+
 jsdom has no layout engine, so `src/test/setup.ts` shims `ResizeObserver` and `DOMMatrixReadOnly`, and defaults a missing
 `UIEvent.view` to `window` (user-event sends `null`, which d3-drag cannot handle). These let React Flow mount; they do
 **not** measure real pixels. Overlap, clipping and mobile fit were checked separately in headless Chrome.
@@ -262,11 +333,18 @@ jsdom has no layout engine, so `src/test/setup.ts` shims `ResizeObserver` and `D
 
 ## 7. Current limitations
 
-- **No live data yet.** The backend is still scaffolding (the health route exists; graph/findings return placeholders).
-- **`GET /attack-paths` is missing from `openapi.yaml`.** The UI shows "not available on the backend yet" in API mode.
+- **Verified against Dev A's backend only as far as it goes.** On `backend/TSK-009-011-014-security-operations` (unmerged) the graph,
+  attack-paths, health and demo-reset endpoints return real data, but `GET /assets`, `GET /findings` and `GET /remediations`
+  are placeholders returning `[]`, `POST /remediations/{id}/approve` returns 501, and assessments polling returns 501. So the
+  findings table, remediation queue and approval cannot be exercised end to end against it yet. The UI shows honest empty or
+  unavailable states for those.
+- **`GET /attack-paths` is missing from `openapi.yaml`** (it exists on Dev A's unmerged branch). The UI shows "not available on
+  the backend yet" when the integrated contract's backend lacks it.
+- **No AI analysis, reject, execute, verify or re-assessment endpoint exists** in the contract or the backend, so those panels
+  are inert and say so.
 - **Graph layout is fixed, not auto-routed:** drag positions are not persisted across reloads, and edge routing is
   computed from the initial layout (dragging a node does not change which side an edge leaves from).
-- **Graph is not tested against live backend graph data** (the backend `/graph` route returns placeholders for now).
+- **The graph has been checked against the real backend payload** (3 asset nodes, plus 2 finding nodes with `include_findings=true`, a parameter that is not in the OpenAPI contract and defaults to false). Without it, API mode shows no finding cards.
 - **Contract gaps** (reported, not worked around): no `category` on Finding (derived from the scanner name for display
   and filtering only), no evidence endpoint, no `chokePointAssetId` in `attack-path.schema.json`, no remediation
   execute/verify endpoints.
@@ -275,7 +353,7 @@ jsdom has no layout engine, so `src/test/setup.ts` shims `ResizeObserver` and `D
 - **Table and graph state are not shared yet:** selecting a finding does not select its graph node (a deep link goes the
   other way: graph inspector to `/threats?f=<id>`).
 - No authentication headers are sent (the documented `X-API-Key` is not part of OpenAPI).
-- Not audited with a screen reader; keyboard and ARIA basics are in place.
+- Not audited with a screen reader; keyboard and ARIA basics are in place. Dialogs trap focus, restore it to the opener (checked with real mouse and keyboard input in headless Chrome), and close on Escape. Browser checks were Chrome only.
 
 ---
 
